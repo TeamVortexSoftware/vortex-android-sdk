@@ -97,6 +97,23 @@ class VortexInviteViewModel(
     private val _shareSuccess = MutableStateFlow(false)
     val shareSuccess: StateFlow<Boolean> = _shareSuccess.asStateFlow()
 
+    // Share Message configuration
+    val shareTitle: String
+        get() {
+            val config = _configuration.value ?: return "You're Invited!"
+            return config.props["vortex.components.share.title"]?.value?.let { (it as? JsonPrimitive)?.content }
+                ?: findShareOptionsBlock()?.getString("shareTitle")
+                ?: "You're Invited!"
+        }
+
+    val shareMessage: String
+        get() {
+            val config = _configuration.value ?: return "Join me on this project!"
+            return config.props["vortex.components.share.message"]?.value?.let { (it as? JsonPrimitive)?.content }
+                ?: findShareOptionsBlock()?.getString("shareMessage")
+                ?: "Join me on this project!"
+        }
+
     // Google Contacts state
     private val _googleContacts = MutableStateFlow<List<VortexContact>>(emptyList())
     val googleContacts: StateFlow<List<VortexContact>> = _googleContacts.asStateFlow()
@@ -509,9 +526,11 @@ class VortexInviteViewModel(
             
             val link = getShareableLink()
             if (link != null) {
+                val fullMessage = "$shareMessage $link"
                 val sendIntent = Intent().apply {
                     action = Intent.ACTION_SEND
-                    putExtra(Intent.EXTRA_TEXT, link)
+                    putExtra(Intent.EXTRA_SUBJECT, shareTitle)
+                    putExtra(Intent.EXTRA_TEXT, fullMessage)
                     type = "text/plain"
                 }
                 val shareIntent = Intent.createChooser(sendIntent, "Share Invitation")
@@ -536,9 +555,10 @@ class VortexInviteViewModel(
     fun shareViaSms(context: Context) {
         viewModelScope.launch {
             getShareableLink()?.let { link ->
+                val fullMessage = "$shareMessage $link"
                 val intent = Intent(Intent.ACTION_VIEW).apply {
                     data = Uri.parse("sms:")
-                    putExtra("sms_body", link)
+                    putExtra("sms_body", fullMessage)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(intent)
@@ -563,8 +583,9 @@ class VortexInviteViewModel(
     fun shareViaWhatsApp(context: Context) {
         viewModelScope.launch {
             getShareableLink()?.let { link ->
+                val fullMessage = "$shareMessage $link"
                 val intent = Intent(Intent.ACTION_VIEW).apply {
-                    data = Uri.parse("https://wa.me/?text=${Uri.encode(link)}")
+                    data = Uri.parse("https://wa.me/?text=${Uri.encode(fullMessage)}")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(intent)
@@ -579,7 +600,7 @@ class VortexInviteViewModel(
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 val intent = Intent(Intent.ACTION_VIEW).apply {
-                    data = Uri.parse("https://t.me/share/url?url=${Uri.encode(link)}")
+                    data = Uri.parse("https://t.me/share/url?url=${Uri.encode(link)}&text=${Uri.encode(shareMessage)}")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(intent)
@@ -593,8 +614,9 @@ class VortexInviteViewModel(
     fun shareViaLine(context: Context) {
         viewModelScope.launch {
             getShareableLink()?.let { link ->
+                val fullMessage = "$shareMessage $link"
                 val intent = Intent(Intent.ACTION_VIEW).apply {
-                    data = Uri.parse("https://line.me/R/msg/text/?${Uri.encode(link)}")
+                    data = Uri.parse("https://line.me/R/msg/text/?${Uri.encode(fullMessage)}")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(intent)
@@ -608,10 +630,11 @@ class VortexInviteViewModel(
     fun shareViaEmail(context: Context) {
         viewModelScope.launch {
             getShareableLink()?.let { link ->
+                val fullMessage = "$shareMessage $link"
                 val intent = Intent(Intent.ACTION_SENDTO).apply {
                     data = Uri.parse("mailto:")
-                    putExtra(Intent.EXTRA_SUBJECT, "You're Invited!")
-                    putExtra(Intent.EXTRA_TEXT, link)
+                    putExtra(Intent.EXTRA_SUBJECT, shareTitle)
+                    putExtra(Intent.EXTRA_TEXT, fullMessage)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(intent)
@@ -626,7 +649,7 @@ class VortexInviteViewModel(
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 val intent = Intent(Intent.ACTION_VIEW).apply {
-                    data = Uri.parse("https://twitter.com/intent/tweet?text=${Uri.encode(link)}")
+                    data = Uri.parse("https://twitter.com/intent/tweet?text=${Uri.encode(shareMessage)}&url=${Uri.encode(link)}")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(intent)
@@ -641,8 +664,9 @@ class VortexInviteViewModel(
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 // Instagram doesn't have a direct share URL, copy to clipboard and open app
+                val fullMessage = "$shareMessage $link"
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = ClipData.newPlainText("Invitation Link", link)
+                val clip = ClipData.newPlainText("Invitation", fullMessage)
                 clipboard.setPrimaryClip(clip)
                 
                 val intent = context.packageManager.getLaunchIntentForPackage("com.instagram.android")
@@ -658,6 +682,7 @@ class VortexInviteViewModel(
     fun shareViaFacebookMessenger(context: Context) {
         viewModelScope.launch {
             getShareableLink()?.let { link ->
+                // Messenger share link works best with just the URL
                 val intent = Intent(Intent.ACTION_VIEW).apply {
                     data = Uri.parse("fb-messenger://share/?link=${Uri.encode(link)}")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -667,7 +692,7 @@ class VortexInviteViewModel(
                 } catch (e: Exception) {
                     // Fallback to web
                     val webIntent = Intent(Intent.ACTION_VIEW).apply {
-                        data = Uri.parse("https://www.facebook.com/dialog/send?link=${Uri.encode(link)}")
+                        data = Uri.parse("https://www.facebook.com/dialog/send?link=${Uri.encode(link)}&app_id=123456789") // Note: App ID might be needed for web dialog
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                     context.startActivity(webIntent)
@@ -683,8 +708,9 @@ class VortexInviteViewModel(
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 // Discord doesn't have a direct share URL, copy to clipboard and open app
+                val fullMessage = "$shareMessage $link"
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = ClipData.newPlainText("Invitation Link", link)
+                val clip = ClipData.newPlainText("Invitation", fullMessage)
                 clipboard.setPrimaryClip(clip)
                 
                 val intent = context.packageManager.getLaunchIntentForPackage("com.discord")

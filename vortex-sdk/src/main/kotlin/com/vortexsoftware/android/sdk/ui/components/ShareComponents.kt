@@ -123,7 +123,7 @@ private fun ShareButtonForOption(
             icon = VortexIconName.EMAIL,
             title = "Share via Email",
             theme = block.theme,
-            onClick = { viewModel.navigateTo(com.vortexsoftware.android.sdk.models.InviteViewState.EMAIL_ENTRY) }
+            onClick = { viewModel.shareViaEmail(context) }
         )
         "twitterDms" -> ShareButton(
             icon = VortexIconName.X_TWITTER,

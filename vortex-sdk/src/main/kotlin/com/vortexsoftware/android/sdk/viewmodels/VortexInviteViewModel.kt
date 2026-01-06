@@ -600,7 +600,7 @@ class VortexInviteViewModel(
      * Share invitation via native share sheet
      */
     fun shareInvitation(context: Context) {
-        trackShareLinkClick("share")
+        trackShareLinkClick("shareViaNativeShare")
         viewModelScope.launch {
             _loadingShare.value = true
             _shareSuccess.value = false
@@ -634,7 +634,7 @@ class VortexInviteViewModel(
      * Share via SMS
      */
     fun shareViaSms(context: Context) {
-        trackShareLinkClick("sms")
+        trackShareLinkClick("shareViaSMS")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 val fullMessage = "$shareMessage $link"
@@ -652,7 +652,7 @@ class VortexInviteViewModel(
      * Show QR code view
      */
     fun showQrCode() {
-        trackShareLinkClick("qrCode")
+        trackShareLinkClick("shareViaQrCode")
         viewModelScope.launch {
             getShareableLink()?.let {
                 _currentView.value = InviteViewState.QR_CODE
@@ -664,7 +664,7 @@ class VortexInviteViewModel(
      * Share via WhatsApp
      */
     fun shareViaWhatsApp(context: Context) {
-        trackShareLinkClick("whatsapp")
+        trackShareLinkClick("shareViaWhatsApp")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 val fullMessage = "$shareMessage $link"
@@ -681,7 +681,7 @@ class VortexInviteViewModel(
      * Share via Telegram
      */
     fun shareViaTelegram(context: Context) {
-        trackShareLinkClick("telegram")
+        trackShareLinkClick("shareViaTelegram")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -697,7 +697,7 @@ class VortexInviteViewModel(
      * Share via LINE
      */
     fun shareViaLine(context: Context) {
-        trackShareLinkClick("line")
+        trackShareLinkClick("shareViaLine")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 val fullMessage = "$shareMessage $link"
@@ -714,7 +714,7 @@ class VortexInviteViewModel(
      * Share via Email
      */
     fun shareViaEmail(context: Context) {
-        trackShareLinkClick("email")
+        trackShareLinkClick("shareViaEmail")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 val fullMessage = "$shareMessage $link"
@@ -733,7 +733,7 @@ class VortexInviteViewModel(
      * Share via Twitter/X
      */
     fun shareViaTwitter(context: Context) {
-        trackShareLinkClick("twitter")
+        trackShareLinkClick("shareViaTwitter")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -749,7 +749,7 @@ class VortexInviteViewModel(
      * Share via Instagram (opens app)
      */
     fun shareViaInstagram(context: Context) {
-        trackShareLinkClick("instagram")
+        trackShareLinkClick("shareViaInstagram")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 // Instagram doesn't have a direct share URL, copy to clipboard and open app
@@ -769,7 +769,7 @@ class VortexInviteViewModel(
      * Share via Facebook Messenger
      */
     fun shareViaFacebookMessenger(context: Context) {
-        trackShareLinkClick("messenger")
+        trackShareLinkClick("shareViaFacebookMessenger")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 // Messenger share link works best with just the URL
@@ -795,7 +795,7 @@ class VortexInviteViewModel(
      * Share via Discord
      */
     fun shareViaDiscord(context: Context) {
-        trackShareLinkClick("discord")
+        trackShareLinkClick("shareViaDiscord")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 // Discord doesn't have a direct share URL, copy to clipboard and open app

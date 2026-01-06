@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.auth.GoogleAuthUtil
+import com.vortexsoftware.android.sdk.analytics.*
 import com.vortexsoftware.android.sdk.api.VortexClient
 import com.vortexsoftware.android.sdk.api.dto.GroupDTO
 import com.vortexsoftware.android.sdk.models.*
@@ -21,6 +22,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.util.UUID
 
 /**
  * Main ViewModel for the Vortex Invite widget
@@ -30,13 +32,30 @@ class VortexInviteViewModel(
     private val componentId: String,
     private val jwt: String?,
     private val apiBaseUrl: String,
+    private val analyticsBaseUrl: String?,
     private val group: GroupDTO?,
+    private val segmentation: Map<String, Any>?,
     private val googleClientId: String?,
     private val onDismiss: (() -> Unit)?,
+    private val onEvent: ((VortexAnalyticsEvent) -> Unit)?,
     private val enableLogging: Boolean = false
 ) : ViewModel() {
     
     val googleClientIdValue: String? get() = googleClientId
+    
+    // Analytics
+    private val sessionId: String = UUID.randomUUID().toString()
+    private var deploymentId: String? = null
+    private var widgetRenderTracked = false
+    private var formRenderTime: Long? = null
+    
+    private val analyticsClient: VortexAnalyticsClient by lazy {
+        VortexAnalyticsClient(
+            baseURL = analyticsBaseUrl ?: VortexAnalyticsClient.DEFAULT_ANALYTICS_URL,
+            sessionId = sessionId,
+            jwt = jwt
+        )
+    }
     
     private val client = VortexClient(
         baseUrl = apiBaseUrl,
@@ -221,12 +240,19 @@ class VortexInviteViewModel(
             client.getWidgetConfiguration(componentId)
                 .onSuccess { response ->
                     _configuration.value = WidgetConfiguration.fromDTO(response.data)
+                    // Extract deploymentId from API response (CRITICAL for analytics)
+                    deploymentId = response.data.deploymentId
                     _isLoading.value = false
+                    // Track widget render on successful load
+                    trackWidgetRender()
                 }
                 .onFailure { e ->
                     android.util.Log.e("VortexInviteViewModel", "Failed to load configuration: ${e.message}")
-                    _error.value = e.message ?: "Failed to load configuration"
+                    val errorMessage = e.message ?: "Failed to load configuration"
+                    _error.value = errorMessage
                     _isLoading.value = false
+                    // Track widget error
+                    trackWidgetError(errorMessage)
                 }
         }
     }
@@ -494,6 +520,7 @@ class VortexInviteViewModel(
      * Copy shareable link to clipboard
      */
     fun copyLink(context: Context) {
+        trackShareLinkClick("copyLink")
         viewModelScope.launch {
             _loadingCopy.value = true
             _copySuccess.value = false
@@ -520,6 +547,7 @@ class VortexInviteViewModel(
      * Share invitation via native share sheet
      */
     fun shareInvitation(context: Context) {
+        trackShareLinkClick("share")
         viewModelScope.launch {
             _loadingShare.value = true
             _shareSuccess.value = false
@@ -553,6 +581,7 @@ class VortexInviteViewModel(
      * Share via SMS
      */
     fun shareViaSms(context: Context) {
+        trackShareLinkClick("sms")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 val fullMessage = "$shareMessage $link"
@@ -570,6 +599,7 @@ class VortexInviteViewModel(
      * Show QR code view
      */
     fun showQrCode() {
+        trackShareLinkClick("qrCode")
         viewModelScope.launch {
             getShareableLink()?.let {
                 _currentView.value = InviteViewState.QR_CODE
@@ -581,6 +611,7 @@ class VortexInviteViewModel(
      * Share via WhatsApp
      */
     fun shareViaWhatsApp(context: Context) {
+        trackShareLinkClick("whatsapp")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 val fullMessage = "$shareMessage $link"
@@ -597,6 +628,7 @@ class VortexInviteViewModel(
      * Share via Telegram
      */
     fun shareViaTelegram(context: Context) {
+        trackShareLinkClick("telegram")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -612,6 +644,7 @@ class VortexInviteViewModel(
      * Share via LINE
      */
     fun shareViaLine(context: Context) {
+        trackShareLinkClick("line")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 val fullMessage = "$shareMessage $link"
@@ -628,6 +661,7 @@ class VortexInviteViewModel(
      * Share via Email
      */
     fun shareViaEmail(context: Context) {
+        trackShareLinkClick("email")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 val fullMessage = "$shareMessage $link"
@@ -646,6 +680,7 @@ class VortexInviteViewModel(
      * Share via Twitter/X
      */
     fun shareViaTwitter(context: Context) {
+        trackShareLinkClick("twitter")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -661,6 +696,7 @@ class VortexInviteViewModel(
      * Share via Instagram (opens app)
      */
     fun shareViaInstagram(context: Context) {
+        trackShareLinkClick("instagram")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 // Instagram doesn't have a direct share URL, copy to clipboard and open app
@@ -680,6 +716,7 @@ class VortexInviteViewModel(
      * Share via Facebook Messenger
      */
     fun shareViaFacebookMessenger(context: Context) {
+        trackShareLinkClick("messenger")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 // Messenger share link works best with just the URL
@@ -705,6 +742,7 @@ class VortexInviteViewModel(
      * Share via Discord
      */
     fun shareViaDiscord(context: Context) {
+        trackShareLinkClick("discord")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 // Discord doesn't have a direct share URL, copy to clipboard and open app
@@ -755,6 +793,108 @@ class VortexInviteViewModel(
         return null
     }
     
+    // MARK: - Analytics tracking
+    
+    /**
+     * Track an analytics event
+     */
+    private fun trackEvent(eventName: VortexEventName, payload: Map<String, Any>? = null) {
+        val event = VortexAnalyticsEvent(
+            name = eventName.eventName,
+            widgetConfigurationId = _configuration.value?.id ?: componentId,
+            deploymentId = deploymentId,
+            sessionId = sessionId,
+            useragent = VortexDeviceInfo.useragent,
+            foreignUserId = VortexJWTParser.extractForeignUserId(jwt),
+            segmentation = segmentation,
+            payload = payload,
+            groups = group?.let { 
+                listOf(GroupInfo(
+                    type = it.type,
+                    id = it.groupId ?: it.id ?: "",
+                    name = it.name
+                ))
+            }
+        )
+        
+        // Call user's callback
+        onEvent?.invoke(event)
+        
+        // Send to analytics backend (fire-and-forget)
+        analyticsClient.track(event)
+    }
+    
+    /**
+     * Track widget render event (once per session)
+     */
+    fun trackWidgetRender() {
+        if (widgetRenderTracked) return
+        widgetRenderTracked = true
+        formRenderTime = System.currentTimeMillis()
+        trackEvent(VortexEventName.WIDGET_RENDER)
+    }
+    
+    /**
+     * Track widget error event
+     */
+    fun trackWidgetError(error: String) {
+        trackEvent(VortexEventName.WIDGET_ERROR, mapOf("error" to error))
+    }
+    
+    /**
+     * Track share link click event
+     */
+    fun trackShareLinkClick(clickName: String) {
+        trackEvent(VortexEventName.WIDGET_SHARE_LINK_CLICK, mapOf("clickName" to clickName))
+    }
+    
+    /**
+     * Track email field focus event
+     */
+    fun trackEmailFieldFocus() {
+        val timestamp = formRenderTime?.let { System.currentTimeMillis() - it } ?: 0L
+        trackEvent(VortexEventName.WIDGET_EMAIL_FIELD_FOCUS, mapOf("timestamp" to timestamp))
+    }
+    
+    /**
+     * Track email field blur event
+     */
+    fun trackEmailFieldBlur() {
+        val timestamp = formRenderTime?.let { System.currentTimeMillis() - it } ?: 0L
+        trackEvent(VortexEventName.WIDGET_EMAIL_FIELD_BLUR, mapOf("timestamp" to timestamp))
+    }
+    
+    /**
+     * Track email validation event
+     */
+    fun trackEmailValidation(email: String, isValid: Boolean) {
+        trackEvent(VortexEventName.WIDGET_EMAIL_VALIDATION, mapOf(
+            "email" to email,
+            "isValid" to isValid
+        ))
+    }
+    
+    /**
+     * Track email invitations submitted event
+     */
+    fun trackEmailInvitationsSubmitted(formData: Map<String, Any>) {
+        trackEvent(VortexEventName.EMAIL_INVITATIONS_SUBMITTED, mapOf("formData" to formData))
+    }
+    
+    /**
+     * Track email validation error event
+     */
+    fun trackEmailValidationError(formData: Map<String, Any>) {
+        trackEvent(VortexEventName.WIDGET_EMAIL_VALIDATION_ERROR, mapOf("formData" to formData))
+    }
+    
+    /**
+     * Track email submit error event
+     */
+    fun trackEmailSubmitError(error: String) {
+        trackEvent(VortexEventName.WIDGET_EMAIL_SUBMIT_ERROR, mapOf("error" to error))
+    }
+    
     /**
      * Factory for creating VortexInviteViewModel with parameters
      */
@@ -762,9 +902,12 @@ class VortexInviteViewModel(
         private val componentId: String,
         private val jwt: String?,
         private val apiBaseUrl: String,
+        private val analyticsBaseUrl: String?,
         private val group: GroupDTO?,
+        private val segmentation: Map<String, Any>?,
         private val googleClientId: String?,
         private val onDismiss: (() -> Unit)?,
+        private val onEvent: ((VortexAnalyticsEvent) -> Unit)?,
         private val enableLogging: Boolean = false
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
@@ -774,9 +917,12 @@ class VortexInviteViewModel(
                     componentId = componentId,
                     jwt = jwt,
                     apiBaseUrl = apiBaseUrl,
+                    analyticsBaseUrl = analyticsBaseUrl,
                     group = group,
+                    segmentation = segmentation,
                     googleClientId = googleClientId,
                     onDismiss = onDismiss,
+                    onEvent = onEvent,
                     enableLogging = enableLogging
                 ) as T
             }

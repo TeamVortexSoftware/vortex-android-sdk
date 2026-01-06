@@ -35,6 +35,8 @@ import com.google.android.gms.common.api.ApiException
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import com.vortexsoftware.android.sdk.api.VortexClient
+import com.vortexsoftware.android.sdk.analytics.VortexAnalyticsClient
+import com.vortexsoftware.android.sdk.analytics.VortexAnalyticsEvent
 import com.vortexsoftware.android.sdk.api.dto.GroupDTO
 import com.vortexsoftware.android.sdk.models.*
 import com.vortexsoftware.android.sdk.ui.components.*
@@ -51,29 +53,38 @@ import com.vortexsoftware.android.sdk.viewmodels.VortexInviteViewModel
  * @param componentId The widget component ID from Vortex dashboard
  * @param jwt Optional JWT token for authenticated requests
  * @param apiBaseUrl Base URL for the Vortex API (defaults to production)
+ * @param analyticsBaseUrl Base URL for the Vortex Analytics collector (defaults to production)
  * @param group Optional group context for the invitation
+ * @param segmentation Optional segmentation data for analytics filtering
  * @param googleClientId Optional Google OAuth client ID for Google Contacts integration
  * @param enableLogging Whether to enable debug logging for API requests
  * @param onDismiss Callback when the widget is dismissed
+ * @param onEvent Callback for receiving analytics events
  */
 @Composable
 fun VortexInviteView(
     componentId: String,
     jwt: String? = null,
     apiBaseUrl: String = VortexClient.DEFAULT_BASE_URL,
+    analyticsBaseUrl: String? = null,
     group: GroupDTO? = null,
+    segmentation: Map<String, Any>? = null,
     googleClientId: String? = null,
     enableLogging: Boolean = false,
-    onDismiss: (() -> Unit)? = null
+    onDismiss: (() -> Unit)? = null,
+    onEvent: ((VortexAnalyticsEvent) -> Unit)? = null
 ) {
     val viewModel: VortexInviteViewModel = viewModel(
         factory = VortexInviteViewModel.Factory(
             componentId = componentId,
             jwt = jwt,
             apiBaseUrl = apiBaseUrl,
+            analyticsBaseUrl = analyticsBaseUrl,
             group = group,
+            segmentation = segmentation,
             googleClientId = googleClientId,
             onDismiss = onDismiss,
+            onEvent = onEvent,
             enableLogging = enableLogging
         )
     )

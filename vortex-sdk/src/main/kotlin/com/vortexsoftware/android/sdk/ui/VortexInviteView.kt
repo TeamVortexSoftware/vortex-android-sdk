@@ -60,6 +60,8 @@ import com.vortexsoftware.android.sdk.viewmodels.VortexInviteViewModel
  * @param enableLogging Whether to enable debug logging for API requests
  * @param onDismiss Callback when the widget is dismissed
  * @param onEvent Callback for receiving analytics events
+ * @param widgetConfiguration Optional prefetched widget configuration for instant rendering
+ * @param deploymentId Optional deployment ID associated with prefetched configuration
  */
 @Composable
 fun VortexInviteView(
@@ -72,7 +74,9 @@ fun VortexInviteView(
     googleClientId: String? = null,
     enableLogging: Boolean = false,
     onDismiss: (() -> Unit)? = null,
-    onEvent: ((VortexAnalyticsEvent) -> Unit)? = null
+    onEvent: ((VortexAnalyticsEvent) -> Unit)? = null,
+    widgetConfiguration: WidgetConfiguration? = null,
+    deploymentId: String? = null
 ) {
     val viewModel: VortexInviteViewModel = viewModel(
         factory = VortexInviteViewModel.Factory(
@@ -85,7 +89,9 @@ fun VortexInviteView(
             googleClientId = googleClientId,
             onDismiss = onDismiss,
             onEvent = onEvent,
-            enableLogging = enableLogging
+            enableLogging = enableLogging,
+            initialConfiguration = widgetConfiguration,
+            initialDeploymentId = deploymentId
         )
     )
     

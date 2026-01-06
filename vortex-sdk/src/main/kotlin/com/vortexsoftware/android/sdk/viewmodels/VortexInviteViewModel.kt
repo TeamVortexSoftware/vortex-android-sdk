@@ -12,6 +12,7 @@ import com.google.android.gms.auth.GoogleAuthUtil
 import com.vortexsoftware.android.sdk.analytics.*
 import com.vortexsoftware.android.sdk.api.VortexClient
 import com.vortexsoftware.android.sdk.api.dto.GroupDTO
+import com.vortexsoftware.android.sdk.cache.VortexConfigurationCache
 import com.vortexsoftware.android.sdk.models.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,7 +39,9 @@ class VortexInviteViewModel(
     private val googleClientId: String?,
     private val onDismiss: (() -> Unit)?,
     private val onEvent: ((VortexAnalyticsEvent) -> Unit)?,
-    private val enableLogging: Boolean = false
+    private val enableLogging: Boolean = false,
+    private val initialConfiguration: WidgetConfiguration? = null,
+    private val initialDeploymentId: String? = null
 ) : ViewModel() {
     
     val googleClientIdValue: String? get() = googleClientId
@@ -63,12 +66,16 @@ class VortexInviteViewModel(
         enableLogging = enableLogging
     )
     
-    // Configuration state
-    private val _configuration = MutableStateFlow<WidgetConfiguration?>(null)
+    // Configuration state - initialize with cached config if available (synchronous check)
+    private val _configuration = MutableStateFlow<WidgetConfiguration?>(
+        initialConfiguration ?: VortexConfigurationCache.get(componentId)?.configuration
+    )
     val configuration: StateFlow<WidgetConfiguration?> = _configuration.asStateFlow()
     
-    // Loading state
-    private val _isLoading = MutableStateFlow(true)
+    // Loading state - starts true only if no cached config available
+    private val _isLoading = MutableStateFlow(
+        initialConfiguration == null && VortexConfigurationCache.get(componentId) == null
+    )
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
     
     // Error state
@@ -230,29 +237,75 @@ class VortexInviteViewModel(
         }
     
     /**
-     * Load widget configuration from the API
+     * Load widget configuration with stale-while-revalidate pattern.
+     * If cached/prefetched configuration exists, it's used immediately (no loading spinner).
+     * Fresh configuration is always fetched in the background to ensure up-to-date data.
      */
     fun loadConfiguration() {
         viewModelScope.launch {
-            _isLoading.value = true
             _error.value = null
             
+            // Step 1: Check for initial configuration (passed via init) or cached configuration
+            var hasCachedConfig = false
+            
+            if (initialConfiguration != null) {
+                // Use configuration passed via init (from prefetcher or parent view)
+                _configuration.value = initialConfiguration
+                deploymentId = initialDeploymentId
+                hasCachedConfig = true
+                if (enableLogging) {
+                    android.util.Log.d("VortexInviteViewModel", "Using initial configuration")
+                }
+            } else {
+                // Check shared cache
+                VortexConfigurationCache.get(componentId)?.let { cached ->
+                    _configuration.value = cached.configuration
+                    deploymentId = cached.deploymentId
+                    hasCachedConfig = true
+                    if (enableLogging) {
+                        android.util.Log.d("VortexInviteViewModel", "Using cached configuration")
+                    }
+                }
+            }
+            
+            // Step 2: Only show loading if we don't have any configuration yet
+            if (!hasCachedConfig) {
+                _isLoading.value = true
+            }
+            
+            // Step 3: Always fetch fresh configuration (stale-while-revalidate)
             client.getWidgetConfiguration(componentId)
                 .onSuccess { response ->
-                    _configuration.value = WidgetConfiguration.fromDTO(response.data)
+                    val freshConfig = WidgetConfiguration.fromDTO(response.data)
+                    _configuration.value = freshConfig
                     // Extract deploymentId from API response (CRITICAL for analytics)
                     deploymentId = response.data.deploymentId
+                    
+                    // Update shared cache for future use
+                    VortexConfigurationCache.set(
+                        componentId = componentId,
+                        configuration = freshConfig,
+                        deploymentId = response.data.deploymentId
+                    )
+                    
                     _isLoading.value = false
                     // Track widget render on successful load
                     trackWidgetRender()
+                    
+                    if (enableLogging) {
+                        android.util.Log.d("VortexInviteViewModel", "Fresh configuration loaded and cached")
+                    }
                 }
                 .onFailure { e ->
                     android.util.Log.e("VortexInviteViewModel", "Failed to load configuration: ${e.message}")
-                    val errorMessage = e.message ?: "Failed to load configuration"
-                    _error.value = errorMessage
+                    // Only set error if we don't have cached config to show
+                    if (!hasCachedConfig) {
+                        val errorMessage = e.message ?: "Failed to load configuration"
+                        _error.value = errorMessage
+                        // Track widget error
+                        trackWidgetError(errorMessage)
+                    }
                     _isLoading.value = false
-                    // Track widget error
-                    trackWidgetError(errorMessage)
                 }
         }
     }
@@ -908,7 +961,9 @@ class VortexInviteViewModel(
         private val googleClientId: String?,
         private val onDismiss: (() -> Unit)?,
         private val onEvent: ((VortexAnalyticsEvent) -> Unit)?,
-        private val enableLogging: Boolean = false
+        private val enableLogging: Boolean = false,
+        private val initialConfiguration: WidgetConfiguration? = null,
+        private val initialDeploymentId: String? = null
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -923,7 +978,9 @@ class VortexInviteViewModel(
                     googleClientId = googleClientId,
                     onDismiss = onDismiss,
                     onEvent = onEvent,
-                    enableLogging = enableLogging
+                    enableLogging = enableLogging,
+                    initialConfiguration = initialConfiguration,
+                    initialDeploymentId = initialDeploymentId
                 ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")

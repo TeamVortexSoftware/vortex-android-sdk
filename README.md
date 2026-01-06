@@ -95,14 +95,65 @@ VortexInviteView(
 )
 ```
 
-### Custom API Base URL
+### Prefetch for Instant Rendering
+
+The SDK supports prefetching widget configurations to eliminate loading delays when users open the invite form. The cache is **global and transparent** - you just need to prefetch, and `VortexInviteView` will automatically use the cached configuration.
+
+#### Automatic Caching (Zero Code Changes)
+
+After the first load, configurations are automatically cached. Subsequent opens will render instantly from cache while refreshing in the background (stale-while-revalidate pattern):
 
 ```kotlin
+// First open: shows loading spinner, fetches config, caches it
+// Second open: renders instantly from cache, refreshes in background
 VortexInviteView(
-    componentId = "your-widget-id",
-    apiBaseUrl = "https://your-custom-api.example.com",
-    onDismiss = { /* handle dismiss */ }
+    componentId = "your-component-id",
+    jwt = jwt,
+    onDismiss = { /* ... */ }
 )
+```
+
+#### Manual Prefetch (For Optimal UX)
+
+For the best user experience, prefetch the configuration when the JWT becomes available. The prefetcher populates a global cache that `VortexInviteView` automatically uses:
+
+```kotlin
+import com.vortexsoftware.android.sdk.prefetch.VortexConfigurationPrefetcher
+
+// Create prefetcher (e.g., in your ViewModel or Composable)
+val prefetcher = VortexConfigurationPrefetcher(
+    componentId = "your-component-id"
+)
+
+// When JWT becomes available, start prefetching
+lifecycleScope.launch {
+    prefetcher.prefetch(jwt)
+}
+
+// Later, VortexInviteView automatically uses the cached configuration
+// No need to pass any configuration parameters!
+VortexInviteView(
+    componentId = "your-component-id",
+    jwt = jwt,
+    onDismiss = { /* ... */ }
+)
+```
+
+#### Prefetcher State Observation
+
+The prefetcher exposes StateFlows for observing prefetch state:
+
+```kotlin
+val prefetcher = VortexConfigurationPrefetcher(componentId = "your-component-id")
+
+// Observe loading state
+prefetcher.isLoading.collect { isLoading -> /* ... */ }
+
+// Observe errors
+prefetcher.error.collect { error -> /* ... */ }
+
+// Check if prefetched
+prefetcher.isPrefetched.collect { isPrefetched -> /* ... */ }
 ```
 
 ## Parameters
@@ -111,7 +162,6 @@ VortexInviteView(
 |-----------|------|----------|---------|-------------|
 | `componentId` | `String` | Yes | - | Widget ID from Vortex dashboard |
 | `jwt` | `String?` | No | `null` | JWT token for authenticated requests |
-| `apiBaseUrl` | `String` | No | Production URL | Base URL for Vortex API |
 | `group` | `GroupDTO?` | No | `null` | Group context for invitations |
 | `googleClientId` | `String?` | No | `null` | Google OAuth client ID for Google Contacts |
 | `onDismiss` | `(() -> Unit)?` | No | `null` | Callback when widget is dismissed |

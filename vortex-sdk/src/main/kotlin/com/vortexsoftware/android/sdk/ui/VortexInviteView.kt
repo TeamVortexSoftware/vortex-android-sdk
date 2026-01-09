@@ -444,19 +444,11 @@ private fun RenderBlock(
             }
         }
         
-        // Submit button
+        // Submit button - intentionally not rendered to match RN SDK behavior
+        // The RN SDK doesn't render standalone submit buttons from the widget configuration
         "submit", "vrtx-submit" -> {
-            val role = block.vortex?.role
-            SubmitButtonView(
-                block = block,
-                theme = theme,
-                isLoading = false,
-                onClick = { 
-                    if (role == "submit") {
-                        viewModel.sendEmailInvitations()
-                    }
-                }
-            )
+            // Skip rendering - the submit functionality is handled by other components
+            // (e.g., EmailEntryView has its own send button)
         }
         
         // Button

@@ -206,6 +206,30 @@ data class ElementNode(
      * Get a boolean attribute value
      */
     fun getBoolean(key: String): Boolean? = attributes[key]?.boolValue ?: hidden
+    
+    /**
+     * Get a custom button label from settings.customizations.<buttonKey>.textContent
+     * 
+     * The widget configuration can contain custom labels for buttons in the format:
+     * settings: { customizations: { copyLink: { textContent: "Copiar Link" }, ... } }
+     * 
+     * @param buttonKey The key of the button (e.g., "copyLink", "email", "nativeShareSheet", "qrCode")
+     * @return The custom label if found, null otherwise
+     */
+    fun getCustomButtonLabel(buttonKey: String): String? {
+        return try {
+            settings
+                ?.get("customizations")
+                ?.let { it as? JsonObject }
+                ?.get(buttonKey)
+                ?.let { it as? JsonObject }
+                ?.get("textContent")
+                ?.let { it as? JsonPrimitive }
+                ?.contentOrNull
+        } catch (e: Exception) {
+            null
+        }
+    }
 }
 
 /**

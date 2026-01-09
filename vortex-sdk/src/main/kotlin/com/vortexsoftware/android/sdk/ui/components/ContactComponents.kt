@@ -56,7 +56,7 @@ fun ContactsImportView(
         if (viewModel.isNativeContactsEnabled) {
             ShareButton(
                 icon = VortexIconName.IMPORT_CONTACTS,
-                title = "Add from Contacts",
+                title = block.getCustomButtonLabel("importContacts") ?: "Add from Contacts",
                 theme = block.theme,
                 onClick = { viewModel.selectFromContacts() }
             )
@@ -66,7 +66,7 @@ fun ContactsImportView(
         if (viewModel.isGoogleContactsEnabled) {
             ShareButton(
                 icon = VortexIconName.GOOGLE,
-                title = "Add from Google Contacts",
+                title = block.getCustomButtonLabel("googleContacts") ?: "Add from Google Contacts",
                 theme = block.theme,
                 onClick = { viewModel.selectFromGoogleContacts() }
             )
@@ -75,7 +75,7 @@ fun ContactsImportView(
         // Add by Email button (navigates to email entry view)
         ShareButton(
             icon = VortexIconName.EMAIL,
-            title = "Add by Email",
+            title = block.getCustomButtonLabel("addByEmail") ?: "Add by Email",
             theme = block.theme,
             onClick = { viewModel.navigateTo(InviteViewState.EMAIL_ENTRY) }
         )

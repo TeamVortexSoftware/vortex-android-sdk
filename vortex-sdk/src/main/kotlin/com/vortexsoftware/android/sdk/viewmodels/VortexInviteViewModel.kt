@@ -41,10 +41,24 @@ class VortexInviteViewModel(
     private val onEvent: ((VortexAnalyticsEvent) -> Unit)?,
     private val enableLogging: Boolean = false,
     private val initialConfiguration: WidgetConfiguration? = null,
-    private val initialDeploymentId: String? = null
+    private val initialDeploymentId: String? = null,
+    private val locale: String? = null,
+    val findFriendsConfig: FindFriendsConfig? = null,
+    val inviteContactsConfig: InviteContactsConfig? = null,
+    val invitationSuggestionsConfig: InvitationSuggestionsConfig? = null,
+    val incomingInvitationsConfig: IncomingInvitationsConfig? = null,
+    val outgoingInvitationsConfig: OutgoingInvitationsConfig? = null,
+    val searchBoxConfig: SearchBoxConfig? = null,
+    val unfurlConfig: UnfurlConfig? = null
 ) : ViewModel() {
     
     val googleClientIdValue: String? get() = googleClientId
+    val localeValue: String? get() = locale
+    
+    // Expose widget configuration ID and group for use by child components
+    // Use configuration ID when available, fallback to componentId
+    val widgetId: String get() = _configuration.value?.id ?: componentId
+    val groupList: List<GroupDTO>? get() = group?.let { listOf(it) }
     
     // Analytics
     private val sessionId: String = UUID.randomUUID().toString()
@@ -60,11 +74,15 @@ class VortexInviteViewModel(
         )
     }
     
-    private val client = VortexClient(
+    // Expose client for use by child components
+    val vortexClient = VortexClient(
         baseUrl = apiBaseUrl,
         jwt = jwt,
         enableLogging = enableLogging
     )
+    
+    // Keep private reference for internal use
+    private val client get() = vortexClient
     
     // Configuration state - initialize with cached config if available (synchronous check)
     private val _configuration = MutableStateFlow<WidgetConfiguration?>(
@@ -107,6 +125,18 @@ class VortexInviteViewModel(
     private val _contactSearchQuery = MutableStateFlow("")
     val contactSearchQuery: StateFlow<String> = _contactSearchQuery.asStateFlow()
     
+    // Invitation sent event - observed by OutgoingInvitationsView to trigger refresh
+    private val _invitationSentEvent = MutableStateFlow<InvitationSentEvent?>(null)
+    val invitationSentEvent: StateFlow<InvitationSentEvent?> = _invitationSentEvent.asStateFlow()
+    
+    /**
+     * Fire an invitation sent event that other subcomponents can observe.
+     * Call this when an invitation is successfully sent from any subcomponent.
+     */
+    fun fireInvitationSentEvent(source: InvitationSentEvent.InvitationSource, shortLink: String = "") {
+        _invitationSentEvent.value = InvitationSentEvent(source = source, shortLink = shortLink)
+    }
+    
     // Share states
     private val _shareableLink = MutableStateFlow<String?>(null)
     val shareableLink: StateFlow<String?> = _shareableLink.asStateFlow()
@@ -123,22 +153,80 @@ class VortexInviteViewModel(
     private val _shareSuccess = MutableStateFlow(false)
     val shareSuccess: StateFlow<Boolean> = _shareSuccess.asStateFlow()
 
+    // Form title from widget configuration (matching iOS SDK's configFormTitle)
+    val configFormTitle: String?
+        get() {
+            val rootElement = _configuration.value?.elements?.firstOrNull() ?: return null
+            return rootElement.getCustomButtonLabel("mobile.formTitle")
+                ?: rootElement.getCustomButtonLabel("formTitle")
+        }
+    
+    val formTitleColor: Long?
+        get() {
+            val rootElement = _configuration.value?.elements?.firstOrNull() ?: return null
+            val hex = rootElement.getThemeOption("--vrtx-form-title-color") ?: return null
+            return parseHexColor(hex)
+        }
+    
+    val formTitleFontSize: Float?
+        get() {
+            val rootElement = _configuration.value?.elements?.firstOrNull() ?: return null
+            val str = rootElement.getThemeOption("--vrtx-form-title-font-size") ?: return null
+            return str.replace("px", "").toFloatOrNull()
+        }
+    
+    val formTitleFontWeight: androidx.compose.ui.text.font.FontWeight?
+        get() {
+            val rootElement = _configuration.value?.elements?.firstOrNull() ?: return null
+            val str = rootElement.getThemeOption("--vrtx-form-title-font-weight") ?: return null
+            return when (str.lowercase()) {
+                "bold", "700" -> androidx.compose.ui.text.font.FontWeight.Bold
+                "600", "semibold" -> androidx.compose.ui.text.font.FontWeight.SemiBold
+                "500", "medium" -> androidx.compose.ui.text.font.FontWeight.Medium
+                "400", "normal", "regular" -> androidx.compose.ui.text.font.FontWeight.Normal
+                "300", "light" -> androidx.compose.ui.text.font.FontWeight.Light
+                else -> null
+            }
+        }
+
     // Share Message configuration
     val shareTitle: String
         get() {
             val config = _configuration.value ?: return "You're Invited!"
-            return config.props["vortex.components.share.title"]?.value?.let { (it as? JsonPrimitive)?.content }
+            return config.props["vortex.components.share.template.subject"]?.value?.let { (it as? JsonPrimitive)?.content }?.takeIf { it.isNotBlank() }
+                ?: config.props["vortex.components.share.title"]?.value?.let { (it as? JsonPrimitive)?.content }
                 ?: findShareOptionsBlock()?.getString("shareTitle")
                 ?: "You're Invited!"
         }
 
-    val shareMessage: String
+    /**
+     * Share message template from configuration.
+     * May contain {{vortex_share_link}} placeholder for the link.
+     */
+    val shareMessageTemplate: String
         get() {
-            val config = _configuration.value ?: return "Join me on this project!"
-            return config.props["vortex.components.share.message"]?.value?.let { (it as? JsonPrimitive)?.content }
+            val config = _configuration.value ?: return "{{vortex_share_link}}"
+            return config.props["vortex.components.share.template.body"]?.value?.let { (it as? JsonPrimitive)?.content }?.takeIf { it.isNotBlank() }
+                ?: config.props["vortex.components.share.message"]?.value?.let { (it as? JsonPrimitive)?.content }
                 ?: findShareOptionsBlock()?.getString("shareMessage")
-                ?: "Join me on this project!"
+                ?: "{{vortex_share_link}}"
         }
+
+    val shareMessage: String
+        get() = shareMessageTemplate
+
+    /**
+     * Build the full share text by replacing the {{vortex_share_link}} placeholder with the actual link.
+     * If no placeholder is found, append the link to the template.
+     */
+    private fun buildShareText(link: String): String {
+        val template = shareMessageTemplate
+        return if (template.contains("{{vortex_share_link}}")) {
+            template.replace("{{vortex_share_link}}", link)
+        } else {
+            if (template.endsWith(" ")) "$template$link" else "$template $link"
+        }
+    }
 
     // Google Contacts state
     private val _googleContacts = MutableStateFlow<List<VortexContact>>(emptyList())
@@ -274,7 +362,7 @@ class VortexInviteViewModel(
             }
             
             // Step 3: Always fetch fresh configuration (stale-while-revalidate)
-            client.getWidgetConfiguration(componentId)
+            client.getWidgetConfiguration(componentId, locale)
                 .onSuccess { response ->
                     val freshConfig = WidgetConfiguration.fromDTO(response.data)
                     _configuration.value = freshConfig
@@ -440,8 +528,10 @@ class VortexInviteViewModel(
                 widgetId = widgetConfigId,
                 inviteeEmail = contact.email,
                 groups = group?.let { listOf(it) },
-                formData = getFormData().takeIf { it.isNotEmpty() }
+                formData = getFormData().takeIf { it.isNotEmpty() },
+                metadata = unfurlConfig?.toMetadata()
             ).onSuccess {
+                fireInvitationSentEvent(InvitationSentEvent.InvitationSource.INVITE_CONTACTS)
                 _contactInviteStates.value = _contactInviteStates.value + (contact.id to ContactInviteState(
                     contact = contact,
                     isInvited = true
@@ -538,8 +628,11 @@ class VortexInviteViewModel(
                     widgetId = widgetConfigId,
                     inviteeEmails = emailsToSend,
                     groups = group?.let { listOf(it) },
-                    formData = getFormData().takeIf { it.isNotEmpty() }
-                )
+                    formData = getFormData().takeIf { it.isNotEmpty() },
+                    metadata = unfurlConfig?.toMetadata()
+                ).onSuccess {
+                    fireInvitationSentEvent(InvitationSentEvent.InvitationSource.EMAIL_INVITATIONS)
+                }
             }
             
             _addedEmails.value = emptyList()
@@ -563,7 +656,8 @@ class VortexInviteViewModel(
 
         return client.generateShareableLink(
             widgetId = widgetConfigId,
-            groups = group?.let { listOf(it) }
+            groups = group?.let { listOf(it) },
+            metadata = unfurlConfig?.toMetadata()
         ).getOrNull()?.data?.invitation?.shortLink?.also {
             _shareableLink.value = it
         }
@@ -584,6 +678,7 @@ class VortexInviteViewModel(
                 val clip = ClipData.newPlainText("Invitation Link", link)
                 clipboard.setPrimaryClip(clip)
                 _copySuccess.value = true
+                fireInvitationSentEvent(InvitationSentEvent.InvitationSource.SHARE_LINK, link)
                 
                 // Reset success state after delay
                 kotlinx.coroutines.delay(2000)
@@ -607,7 +702,7 @@ class VortexInviteViewModel(
             
             val link = getShareableLink()
             if (link != null) {
-                val fullMessage = "$shareMessage $link"
+                val fullMessage = buildShareText(link)
                 val sendIntent = Intent().apply {
                     action = Intent.ACTION_SEND
                     putExtra(Intent.EXTRA_SUBJECT, shareTitle)
@@ -618,6 +713,7 @@ class VortexInviteViewModel(
                 shareIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(shareIntent)
                 _shareSuccess.value = true
+                fireInvitationSentEvent(InvitationSentEvent.InvitationSource.SHARE_LINK, link)
                 
                 // Reset success state after delay
                 kotlinx.coroutines.delay(2000)
@@ -631,19 +727,20 @@ class VortexInviteViewModel(
     }
     
     /**
-     * Share via SMS
+     * Share via SMS - Opens the native SMS app with pre-filled message
      */
     fun shareViaSms(context: Context) {
         trackShareLinkClick("shareViaSMS")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
-                val fullMessage = "$shareMessage $link"
-                val intent = Intent(Intent.ACTION_VIEW).apply {
-                    data = Uri.parse("sms:")
+                val fullMessage = buildShareText(link)
+                val intent = Intent(Intent.ACTION_SENDTO).apply {
+                    data = Uri.parse("smsto:")
                     putExtra("sms_body", fullMessage)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(intent)
+                fireInvitationSentEvent(InvitationSentEvent.InvitationSource.SHARE_LINK, link)
             }
         }
     }
@@ -667,7 +764,7 @@ class VortexInviteViewModel(
         trackShareLinkClick("shareViaWhatsApp")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
-                val fullMessage = "$shareMessage $link"
+                val fullMessage = buildShareText(link)
                 val intent = Intent(Intent.ACTION_VIEW).apply {
                     data = Uri.parse("https://wa.me/?text=${Uri.encode(fullMessage)}")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -684,8 +781,9 @@ class VortexInviteViewModel(
         trackShareLinkClick("shareViaTelegram")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
+                val fullMessage = buildShareText(link)
                 val intent = Intent(Intent.ACTION_VIEW).apply {
-                    data = Uri.parse("https://t.me/share/url?url=${Uri.encode(link)}&text=${Uri.encode(shareMessage)}")
+                    data = Uri.parse("https://t.me/share/url?url=${Uri.encode(link)}&text=${Uri.encode(fullMessage)}")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(intent)
@@ -700,7 +798,7 @@ class VortexInviteViewModel(
         trackShareLinkClick("shareViaLine")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
-                val fullMessage = "$shareMessage $link"
+                val fullMessage = buildShareText(link)
                 val intent = Intent(Intent.ACTION_VIEW).apply {
                     data = Uri.parse("https://line.me/R/msg/text/?${Uri.encode(fullMessage)}")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -717,7 +815,7 @@ class VortexInviteViewModel(
         trackShareLinkClick("shareViaEmail")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
-                val fullMessage = "$shareMessage $link"
+                val fullMessage = buildShareText(link)
                 val intent = Intent(Intent.ACTION_SENDTO).apply {
                     data = Uri.parse("mailto:")
                     putExtra(Intent.EXTRA_SUBJECT, shareTitle)
@@ -736,8 +834,9 @@ class VortexInviteViewModel(
         trackShareLinkClick("shareViaTwitter")
         viewModelScope.launch {
             getShareableLink()?.let { link ->
+                val fullMessage = buildShareText(link)
                 val intent = Intent(Intent.ACTION_VIEW).apply {
-                    data = Uri.parse("https://twitter.com/intent/tweet?text=${Uri.encode(shareMessage)}&url=${Uri.encode(link)}")
+                    data = Uri.parse("https://twitter.com/intent/tweet?text=${Uri.encode(fullMessage)}&url=${Uri.encode(link)}")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(intent)
@@ -753,7 +852,7 @@ class VortexInviteViewModel(
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 // Instagram doesn't have a direct share URL, copy to clipboard and open app
-                val fullMessage = "$shareMessage $link"
+                val fullMessage = buildShareText(link)
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 val clip = ClipData.newPlainText("Invitation", fullMessage)
                 clipboard.setPrimaryClip(clip)
@@ -799,7 +898,7 @@ class VortexInviteViewModel(
         viewModelScope.launch {
             getShareableLink()?.let { link ->
                 // Discord doesn't have a direct share URL, copy to clipboard and open app
-                val fullMessage = "$shareMessage $link"
+                val fullMessage = buildShareText(link)
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 val clip = ClipData.newPlainText("Invitation", fullMessage)
                 clipboard.setPrimaryClip(clip)
@@ -949,6 +1048,17 @@ class VortexInviteViewModel(
     }
     
     /**
+     * Track outbound invitation delete event
+     */
+    fun trackOutboundInvitationDelete(invitationId: String, inviteeName: String) {
+        trackEvent(VortexEventName.WIDGET_SHARE_LINK_CLICK, mapOf(
+            "clickName" to "cancelOutboundInvitation",
+            "invitationId" to invitationId,
+            "inviteeName" to inviteeName
+        ))
+    }
+    
+    /**
      * Factory for creating VortexInviteViewModel with parameters
      */
     class Factory(
@@ -963,7 +1073,15 @@ class VortexInviteViewModel(
         private val onEvent: ((VortexAnalyticsEvent) -> Unit)?,
         private val enableLogging: Boolean = false,
         private val initialConfiguration: WidgetConfiguration? = null,
-        private val initialDeploymentId: String? = null
+        private val initialDeploymentId: String? = null,
+        private val locale: String? = null,
+        private val findFriendsConfig: FindFriendsConfig? = null,
+        private val inviteContactsConfig: InviteContactsConfig? = null,
+        private val invitationSuggestionsConfig: InvitationSuggestionsConfig? = null,
+        private val incomingInvitationsConfig: IncomingInvitationsConfig? = null,
+        private val outgoingInvitationsConfig: OutgoingInvitationsConfig? = null,
+        private val searchBoxConfig: SearchBoxConfig? = null,
+        private val unfurlConfig: UnfurlConfig? = null
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -980,7 +1098,15 @@ class VortexInviteViewModel(
                     onEvent = onEvent,
                     enableLogging = enableLogging,
                     initialConfiguration = initialConfiguration,
-                    initialDeploymentId = initialDeploymentId
+                    initialDeploymentId = initialDeploymentId,
+                    locale = locale,
+                    findFriendsConfig = findFriendsConfig,
+                    inviteContactsConfig = inviteContactsConfig,
+                    invitationSuggestionsConfig = invitationSuggestionsConfig,
+                    incomingInvitationsConfig = incomingInvitationsConfig,
+                    outgoingInvitationsConfig = outgoingInvitationsConfig,
+                    searchBoxConfig = searchBoxConfig,
+                    unfurlConfig = unfurlConfig
                 ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")

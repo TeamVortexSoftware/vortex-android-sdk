@@ -8,6 +8,13 @@ An **invitations-as-a-service** Android SDK that renders dynamic invitation form
 - 📧 **Multiple Invitation Methods** - Email, SMS, shareable links, QR codes
 - 🔗 **Social Sharing** - WhatsApp, Telegram, LINE, Twitter/X, Instagram, Discord, Facebook Messenger
 - 📱 **Contact Import** - Device contacts and Google Contacts integration
+- 👥 **Find Friends** - Invite users by internal ID with Connect/Invite buttons
+- 💬 **SMS Invitations** - Invite contacts via SMS with in-app composer
+- 💡 **Invitation Suggestions** - Display suggested contacts with invite/dismiss actions
+- 📥 **Incoming Invitations** - Accept or delete received invitations
+- 📤 **Outgoing Invitations** - View and cancel sent invitations
+- 🔗 **Deferred Deep Links** - Fingerprint matching for post-install attribution
+- 🌍 **Internationalization** - Locale support for multi-language widgets
 - 🎭 **Theming Support** - Solid colors and gradient backgrounds
 - 🔒 **JWT Authentication** - Secure API communication
 
@@ -196,6 +203,146 @@ VortexInviteView(
 )
 ```
 
+## New Components
+
+### Find Friends
+
+Display contacts that can be invited via internal user ID:
+
+```kotlin
+val findFriendsConfig = FindFriendsConfig(
+    contacts = listOf(
+        FindFriendsContact(id = "user-1", name = "Alice", isMember = true),
+        FindFriendsContact(id = "user-2", name = "Bob", isMember = false)
+    ),
+    onConnect = { contact -> /* Handle connect for members */ },
+    onInvite = { contact -> /* Called after invitation succeeds */ }
+)
+
+VortexInviteView(
+    componentId = "your-widget-id",
+    jwt = jwt,
+    findFriendsConfig = findFriendsConfig,
+    onDismiss = { /* handle dismiss */ }
+)
+```
+
+### Invite Contacts (SMS)
+
+Display contacts for SMS invitations:
+
+```kotlin
+val inviteContactsConfig = InviteContactsConfig(
+    contacts = listOf(
+        InviteContactsContact(id = "1", name = "Emma", phoneNumber = "+1234567890"),
+        InviteContactsContact(id = "2", name = "Frank", phoneNumber = "+0987654321")
+    ),
+    onInvite = { contact, shortLink -> /* Called after SMS invitation created */ }
+)
+
+VortexInviteView(
+    componentId = "your-widget-id",
+    jwt = jwt,
+    inviteContactsConfig = inviteContactsConfig,
+    onDismiss = { /* handle dismiss */ }
+)
+```
+
+### Invitation Suggestions
+
+Display suggested contacts with invite/dismiss actions:
+
+```kotlin
+val suggestionsConfig = InvitationSuggestionsConfig(
+    suggestions = listOf(
+        InvitationSuggestionContact(
+            id = "1",
+            name = "Henry",
+            email = "henry@example.com",
+            reason = "Works in your department"
+        )
+    ),
+    onInvite = { suggestion -> /* Called after invitation succeeds */ },
+    onDismiss = { suggestion -> /* Handle dismissal in your backend */ }
+)
+
+VortexInviteView(
+    componentId = "your-widget-id",
+    jwt = jwt,
+    invitationSuggestionsConfig = suggestionsConfig,
+    onDismiss = { /* handle dismiss */ }
+)
+```
+
+### Incoming Invitations
+
+Display and manage received invitations:
+
+```kotlin
+val incomingConfig = IncomingInvitationsConfig(
+    onAccept = { invitation -> /* Called after accept succeeds */ },
+    onDelete = { invitation -> /* Called after delete succeeds */ }
+)
+
+VortexInviteView(
+    componentId = "your-widget-id",
+    jwt = jwt,
+    incomingInvitationsConfig = incomingConfig,
+    onDismiss = { /* handle dismiss */ }
+)
+```
+
+### Outgoing Invitations
+
+Display and manage sent invitations:
+
+```kotlin
+val outgoingConfig = OutgoingInvitationsConfig(
+    onCancel = { invitation -> /* Called after cancellation succeeds */ }
+)
+
+VortexInviteView(
+    componentId = "your-widget-id",
+    jwt = jwt,
+    outgoingInvitationsConfig = outgoingConfig,
+    onDismiss = { /* handle dismiss */ }
+)
+```
+
+### Deferred Deep Links
+
+Retrieve invitation context for users who installed the app after clicking an invitation link:
+
+```kotlin
+import com.vortexsoftware.android.sdk.VortexDeferredLinks
+
+// Call when user signs in or session is restored
+lifecycleScope.launch {
+    val result = VortexDeferredLinks.retrieveDeferredDeepLink(context, jwt)
+    result.onSuccess { response ->
+        if (response.matched && response.context != null) {
+            val invitationId = response.context.invitationId
+            val scope = response.context.scope // e.g., team ID
+            val scopeType = response.context.scopeType // e.g., "team"
+            // Handle the deferred deep link
+        }
+    }
+}
+```
+
+### Internationalization
+
+Pass a locale to fetch localized widget content:
+
+```kotlin
+VortexInviteView(
+    componentId = "your-widget-id",
+    jwt = jwt,
+    locale = "pt-BR", // BCP 47 language code
+    onDismiss = { /* handle dismiss */ }
+)
+```
+
 ## Architecture
 
 The SDK follows a clean architecture pattern:
@@ -224,8 +371,13 @@ com.vortexsoftware.android.sdk/
 The SDK communicates with the following Vortex API endpoints:
 
 - `GET /api/v1/widgets/{componentId}` - Fetch widget configuration
-- `POST /api/v1/invitations` - Create invitation
+- `POST /api/v1/invitations` - Create invitation (email, SMS, internal ID)
 - `POST /api/v1/invitations/generate-shareable-link-invite` - Generate shareable link
+- `GET /api/v1/invitations/sent` - Get outgoing invitations
+- `GET /api/v1/invitations` - Get incoming invitations
+- `POST /api/v1/invitations/accept` - Accept an invitation
+- `DELETE /api/v1/invitations/{id}` - Delete/revoke an invitation
+- `POST /api/v1/deferred-links/match` - Match device fingerprint for deferred deep links
 
 ## Supported Share Methods
 

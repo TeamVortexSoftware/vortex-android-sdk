@@ -5,6 +5,8 @@ import com.vortexsoftware.android.sdk.VortexSDK
 import com.vortexsoftware.android.sdk.api.dto.*
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -25,7 +27,8 @@ interface VortexApi {
      */
     @GET("api/v1/widgets/{componentId}")
     suspend fun getWidgetConfiguration(
-        @Path("componentId") componentId: String
+        @Path("componentId") componentId: String,
+        @Query("locale") locale: String? = null
     ): Response<WidgetConfigurationResponse>
     
     /**
@@ -37,12 +40,80 @@ interface VortexApi {
     ): Response<CreateInvitationResponse>
     
     /**
+     * Create an SMS invitation
+     */
+    @POST("api/v1/invitations")
+    suspend fun createSmsInvitation(
+        @Body request: CreateSmsInvitationRequest
+    ): Response<CreateInvitationResponse>
+    
+    /**
+     * Create an internal ID invitation (Find Friends)
+     */
+    @POST("api/v1/invitations")
+    suspend fun createInternalIdInvitation(
+        @Body request: CreateInternalIdInvitationRequest
+    ): Response<CreateInvitationResponse>
+    
+    /**
      * Generate a shareable link
      */
     @POST("api/v1/invitations/generate-shareable-link-invite")
     suspend fun generateShareableLink(
         @Body request: GenerateShareableLinkRequest
     ): Response<ShareableLinkResponse>
+    
+    /**
+     * Get outgoing (sent) invitations
+     */
+    @GET("api/v1/invitations/sent")
+    suspend fun getOutgoingInvitations(): Response<OutgoingInvitationsResponse>
+    
+    /**
+     * Get incoming (received) invitations
+     */
+    @GET("api/v1/invitations")
+    suspend fun getIncomingInvitations(): Response<IncomingInvitationsResponse>
+    
+    /**
+     * Revoke (cancel) an invitation
+     */
+    @DELETE("api/v1/invitations/{invitationId}")
+    suspend fun revokeInvitation(
+        @Path("invitationId") invitationId: String
+    ): Response<Unit>
+    
+    /**
+     * Accept an incoming invitation
+     */
+    @POST("api/v1/invitations/accept")
+    suspend fun acceptInvitation(
+        @Body request: AcceptInvitationRequest
+    ): Response<Unit>
+    
+    /**
+     * Get a single invitation by ID
+     */
+    @GET("api/v1/invitations/{invitationId}")
+    suspend fun getInvitation(
+        @Path("invitationId") invitationId: String
+    ): Response<Invitation>
+
+    /**
+     * Delete (reject) an incoming invitation
+     */
+    @DELETE("api/v1/invitations/{invitationId}")
+    suspend fun deleteInvitation(
+        @Path("invitationId") invitationId: String
+    ): Response<Unit>
+    
+    /**
+     * Match device fingerprint for deferred deep linking
+     */
+    @POST("api/v1/deferred-links/match")
+    suspend fun matchFingerprint(
+        @Body request: MatchFingerprintRequest
+    ): Response<MatchFingerprintResponse>
 }
 
 /**
@@ -139,10 +210,12 @@ class VortexClient(
     
     /**
      * Fetch widget configuration for the given component ID
+     * @param componentId The widget/component ID
+     * @param locale Optional BCP 47 language code for internationalization (e.g., "pt-BR", "en-US")
      */
-    suspend fun getWidgetConfiguration(componentId: String): Result<WidgetConfigurationResponse> {
+    suspend fun getWidgetConfiguration(componentId: String, locale: String? = null): Result<WidgetConfigurationResponse> {
         val result = executeRequest {
-            api.getWidgetConfiguration(componentId)
+            api.getWidgetConfiguration(componentId, locale)
         }
         
         result.onSuccess { response ->
@@ -163,8 +236,9 @@ class VortexClient(
         groups: List<GroupDTO>? = null,
         formData: Map<String, String>? = null,
         passThrough: String? = null,
-        configurationAttributes: Map<String, kotlinx.serialization.json.JsonElement>? = null,
-        templateVariables: Map<String, String>? = null
+        configurationAttributes: Map<String, JsonElement>? = null,
+        templateVariables: Map<String, String>? = null,
+        metadata: Map<String, Any>? = null
     ): Result<CreateInvitationResponse> {
         val payload = mutableMapOf<String, InvitationPayloadValue>()
         payload["email"] = InvitationPayloadValue(value = JsonPrimitive(inviteeEmail), type = "email")
@@ -183,7 +257,8 @@ class VortexClient(
                     groups = groups,
                     passThrough = passThrough,
                     configurationAttributes = configurationAttributes,
-                    templateVariables = templateVariables
+                    templateVariables = templateVariables,
+                    metadata = metadata?.toJsonElementMap()
                 )
             )
         }
@@ -198,8 +273,9 @@ class VortexClient(
         groups: List<GroupDTO>? = null,
         formData: Map<String, String>? = null,
         passThrough: String? = null,
-        configurationAttributes: Map<String, kotlinx.serialization.json.JsonElement>? = null,
-        templateVariables: Map<String, String>? = null
+        configurationAttributes: Map<String, JsonElement>? = null,
+        templateVariables: Map<String, String>? = null,
+        metadata: Map<String, Any>? = null
     ): Result<CreateInvitationResponse> {
         val payload = mutableMapOf<String, InvitationPayloadValue>()
         
@@ -223,7 +299,8 @@ class VortexClient(
                     groups = groups,
                     passThrough = passThrough,
                     configurationAttributes = configurationAttributes,
-                    templateVariables = templateVariables
+                    templateVariables = templateVariables,
+                    metadata = metadata?.toJsonElementMap()
                 )
             )
         }
@@ -235,16 +312,203 @@ class VortexClient(
     suspend fun generateShareableLink(
         widgetId: String,
         groups: List<GroupDTO>? = null,
-        templateVariables: Map<String, String>? = null
+        templateVariables: Map<String, String>? = null,
+        metadata: Map<String, Any>? = null
     ): Result<ShareableLinkResponse> {
         return executeRequest {
             api.generateShareableLink(
                 GenerateShareableLinkRequest(
                     widgetConfigurationId = widgetId,
                     groups = groups,
+                    templateVariables = templateVariables,
+                    metadata = metadata?.toJsonElementMap()
+                )
+            )
+        }
+    }
+    
+    /**
+     * Create an SMS invitation
+     * @param widgetId The widget configuration ID
+     * @param phoneNumber The recipient's phone number
+     * @param contactName Optional name of the contact
+     * @param groups Optional groups for scoping
+     * @param templateVariables Optional template variables
+     * @return The short link for the invitation
+     */
+    suspend fun createSmsInvitation(
+        widgetId: String,
+        phoneNumber: String,
+        contactName: String? = null,
+        groups: List<GroupDTO>? = null,
+        templateVariables: Map<String, String>? = null
+    ): Result<String?> {
+        return executeRequest {
+            api.createSmsInvitation(
+                CreateSmsInvitationRequest(
+                    widgetConfigurationId = widgetId,
+                    source = "sms",
+                    targets = listOf(
+                        SmsInvitationTarget(
+                            targetType = "sms",
+                            targetValue = phoneNumber,
+                            targetName = contactName
+                        )
+                    ),
+                    groups = groups,
                     templateVariables = templateVariables
                 )
             )
+        }.map { response ->
+            response.data.invitationEntries?.firstOrNull()?.shortLink
+        }
+    }
+    
+    /**
+     * Create an internal ID invitation (for Find Friends feature)
+     * @param widgetId The widget configuration ID
+     * @param internalId The internal user ID
+     * @param contactName Optional name of the contact
+     * @param groups Optional groups for scoping
+     * @param templateVariables Optional template variables
+     */
+    suspend fun createInternalIdInvitation(
+        widgetId: String,
+        internalId: String,
+        contactName: String? = null,
+        contactAvatarUrl: String? = null,
+        groups: List<GroupDTO>? = null,
+        templateVariables: Map<String, String>? = null,
+        metadata: Map<String, Any>? = null
+    ): Result<CreateInvitationResponse> {
+        // Build the target value object: { value: internalId, name: contactName, avatarUrl?: string }
+        val targetValueMap = mutableMapOf<String, JsonPrimitive>(
+            "value" to JsonPrimitive(internalId),
+            "name" to JsonPrimitive(contactName ?: "")
+        )
+        contactAvatarUrl?.let {
+            targetValueMap["avatarUrl"] = JsonPrimitive(it)
+        }
+
+        // Build payload matching iOS/RN SDK format:
+        // { internalId: { type: "internal", value: { value, name, avatarUrl? } } }
+        val payload = mapOf(
+            "internalId" to InvitationPayloadValue(
+                value = JsonObject(targetValueMap),
+                type = "internal"
+            )
+        )
+
+        return executeRequest {
+            api.createInvitation(
+                CreateInvitationRequest(
+                    widgetConfigurationId = widgetId,
+                    payload = payload,
+                    source = "internal",
+                    groups = groups,
+                    templateVariables = templateVariables,
+                    metadata = metadata?.toJsonElementMap()
+                )
+            )
+        }
+    }
+    
+    /**
+     * Retrieves details of a specific invitation by its ID.
+     *
+     * Use this method to fetch the full details of any invitation, including its targets,
+     * groups, acceptance records, and metadata.
+     *
+     * @param invitationId The ID of the invitation to retrieve
+     * @return The full invitation details
+     * @throws VortexError if the request fails or the invitation is not found
+     */
+    suspend fun getInvitation(invitationId: String): Result<Invitation> {
+        return executeRequest {
+            api.getInvitation(invitationId)
+        }
+    }
+
+    /**
+     * Retrieves outgoing (sent) invitations for the current user.
+     *
+     * @return List of outgoing invitations
+     */
+    suspend fun getOutgoingInvitations(): Result<List<OutgoingInvitation>> {
+        return executeRequest {
+            api.getOutgoingInvitations()
+        }.map { response ->
+            response.data.invitations
+        }
+    }
+    
+    /**
+     * Revokes an outgoing invitation that the user has sent.
+     *
+     * This permanently cancels the invitation. The invitation will no longer be
+     * accessible to the recipient.
+     *
+     * @param invitationId The ID of the invitation to revoke
+     * @throws VortexError if the request fails
+     */
+    suspend fun revokeInvitation(invitationId: String): Result<Unit> {
+        return executeRequest {
+            api.revokeInvitation(invitationId)
+        }
+    }
+    
+    /**
+     * Fetches incoming (open) invitations for the current user.
+     *
+     * Returns only pending invitations that have not yet been accepted.
+     *
+     * @return List of incoming invitations
+     */
+    suspend fun getIncomingInvitations(): Result<List<IncomingInvitation>> {
+        return executeRequest {
+            api.getIncomingInvitations()
+        }.map { response ->
+            response.data.invitations
+        }
+    }
+    
+    /**
+     * Accepts an incoming invitation that the user has received.
+     *
+     * Once accepted, the invitation status will be updated and the acceptance
+     * will be recorded.
+     *
+     * @param invitationId The ID of the invitation to accept
+     * @throws VortexError if the request fails
+     */
+    suspend fun acceptInvitation(invitationId: String): Result<Unit> {
+        return executeRequest {
+            api.acceptInvitation(AcceptInvitationRequest(invitationId))
+        }
+    }
+    
+    /**
+     * Deletes (rejects/declines) an incoming invitation.
+     *
+     * This removes the invitation from the user's incoming list.
+     *
+     * @param invitationId The ID of the invitation to delete
+     * @throws VortexError if the request fails
+     */
+    suspend fun deleteIncomingInvitation(invitationId: String): Result<Unit> {
+        return executeRequest {
+            api.deleteInvitation(invitationId)
+        }
+    }
+    
+    /**
+     * Match device fingerprint for deferred deep linking
+     * @param fingerprint Device fingerprint data
+     * @return Match result containing invitation context if found
+     */
+    suspend fun matchFingerprint(fingerprint: DeviceFingerprint): Result<MatchFingerprintResponse> {
+        return executeRequest {
+            api.matchFingerprint(MatchFingerprintRequest(fingerprint))
         }
     }
     
@@ -270,4 +534,22 @@ class VortexClient(
             Result.failure(VortexError.fromException(e))
         }
     }
+}
+
+/**
+ * Convert a Map<String, Any> to Map<String, JsonElement> for serialization.
+ * Supports String, Number, Boolean, nested Map, and List values.
+ */
+@Suppress("UNCHECKED_CAST")
+fun Map<String, Any>.toJsonElementMap(): Map<String, JsonElement> {
+    return mapValues { (_, value) -> value.toJsonElement() }
+}
+
+private fun Any.toJsonElement(): JsonElement = when (this) {
+    is String -> JsonPrimitive(this)
+    is Number -> JsonPrimitive(this)
+    is Boolean -> JsonPrimitive(this)
+    is Map<*, *> -> JsonObject((this as Map<String, Any>).toJsonElementMap())
+    is List<*> -> JsonArray(this.mapNotNull { it?.toJsonElement() })
+    else -> JsonPrimitive(toString())
 }

@@ -1,6 +1,8 @@
 package com.vortexsoftware.android.sdk.ui
 
+import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -62,6 +64,12 @@ import com.vortexsoftware.android.sdk.viewmodels.VortexInviteViewModel
  * @param onEvent Callback for receiving analytics events
  * @param widgetConfiguration Optional prefetched widget configuration for instant rendering
  * @param deploymentId Optional deployment ID associated with prefetched configuration
+ * @param locale Optional BCP 47 language code for internationalization (e.g., "pt-BR", "en-US")
+ * @param findFriendsConfig Optional configuration for the Find Friends component
+ * @param inviteContactsConfig Optional configuration for the Invite Contacts (SMS) component
+ * @param invitationSuggestionsConfig Optional configuration for the Invitation Suggestions component
+ * @param incomingInvitationsConfig Optional configuration for the Incoming Invitations component
+ * @param outgoingInvitationsConfig Optional configuration for the Outgoing Invitations component
  */
 @Composable
 fun VortexInviteView(
@@ -76,7 +84,15 @@ fun VortexInviteView(
     onDismiss: (() -> Unit)? = null,
     onEvent: ((VortexAnalyticsEvent) -> Unit)? = null,
     widgetConfiguration: WidgetConfiguration? = null,
-    deploymentId: String? = null
+    deploymentId: String? = null,
+    locale: String? = null,
+    findFriendsConfig: FindFriendsConfig? = null,
+    inviteContactsConfig: InviteContactsConfig? = null,
+    invitationSuggestionsConfig: InvitationSuggestionsConfig? = null,
+    incomingInvitationsConfig: IncomingInvitationsConfig? = null,
+    outgoingInvitationsConfig: OutgoingInvitationsConfig? = null,
+    searchBoxConfig: SearchBoxConfig? = null,
+    unfurlConfig: UnfurlConfig? = null
 ) {
     val viewModel: VortexInviteViewModel = viewModel(
         factory = VortexInviteViewModel.Factory(
@@ -91,7 +107,15 @@ fun VortexInviteView(
             onEvent = onEvent,
             enableLogging = enableLogging,
             initialConfiguration = widgetConfiguration,
-            initialDeploymentId = deploymentId
+            initialDeploymentId = deploymentId,
+            locale = locale,
+            findFriendsConfig = findFriendsConfig,
+            inviteContactsConfig = inviteContactsConfig,
+            invitationSuggestionsConfig = invitationSuggestionsConfig,
+            incomingInvitationsConfig = incomingInvitationsConfig,
+            outgoingInvitationsConfig = outgoingInvitationsConfig,
+            searchBoxConfig = searchBoxConfig,
+            unfurlConfig = unfurlConfig
         )
     )
     
@@ -115,7 +139,19 @@ private fun VortexInviteContent(viewModel: VortexInviteViewModel) {
     val currentView by viewModel.currentView.collectAsState()
     
     val theme = widgetConfig?.theme
-    val surfaceColor = theme?.surfaceBackgroundColor?.toComposeColor() ?: MaterialTheme.colorScheme.surface
+    // Priority: 1) Root element's inline style, 2) Theme's --color-surface-background, 3) Default
+    val rootElement = widgetConfig?.elements?.firstOrNull()
+    val rootBackgroundValue = rootElement?.style?.get("background")
+    val themeSurfaceColor = theme?.surfaceBackgroundColor
+    val surfaceColor = when {
+        rootBackgroundValue != null && rootBackgroundValue != "transparent" -> {
+            parseHexColor(rootBackgroundValue)?.toComposeColor() ?: MaterialTheme.colorScheme.surface
+        }
+        themeSurfaceColor != null -> {
+            themeSurfaceColor.toComposeColor()
+        }
+        else -> MaterialTheme.colorScheme.surface
+    }
     
     Box(
         modifier = Modifier
@@ -133,9 +169,13 @@ private fun VortexInviteContent(viewModel: VortexInviteViewModel) {
                 .background(surfaceColor)
                 .clickable(enabled = false) {} // Prevent click-through
         ) {
-            // Header with close/back button
+            // Header with close/back button and optional form title
             HeaderView(
                 currentView = currentView,
+                formTitle = viewModel.configFormTitle,
+                formTitleColor = viewModel.formTitleColor?.toComposeColor(),
+                formTitleFontSize = viewModel.formTitleFontSize,
+                formTitleFontWeight = viewModel.formTitleFontWeight,
                 onBack = { viewModel.navigateBack() },
                 onClose = { viewModel.dismiss() }
             )
@@ -167,9 +207,16 @@ private fun VortexInviteContent(viewModel: VortexInviteViewModel) {
 @Composable
 private fun HeaderView(
     currentView: InviteViewState,
+    formTitle: String? = null,
+    formTitleColor: Color? = null,
+    formTitleFontSize: Float? = null,
+    formTitleFontWeight: FontWeight? = null,
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
+    val defaultTitleColor = Color(0xFF1A1A1A)
+    val iconColor = (formTitleColor ?: defaultTitleColor).copy(alpha = 0.75f)
+    
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -182,10 +229,25 @@ private fun HeaderView(
             VortexIcon(
                 name = if (currentView == InviteViewState.MAIN) VortexIconName.CLOSE else VortexIconName.ARROW_BACK,
                 size = 24,
-                color = VortexColors.Gray66
+                color = iconColor
             )
         }
-        Spacer(modifier = Modifier.weight(1f))
+        if (formTitle != null) {
+            Text(
+                text = formTitle,
+                fontSize = (formTitleFontSize ?: 17f).sp,
+                fontWeight = formTitleFontWeight ?: FontWeight.SemiBold,
+                color = formTitleColor ?: defaultTitleColor,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.weight(1f)
+            )
+            // Balancing spacer to keep title centered
+            Spacer(modifier = Modifier.size(48.dp))
+        } else {
+            Spacer(modifier = Modifier.weight(1f))
+        }
     }
 }
 
@@ -233,6 +295,7 @@ private fun MainFormView(viewModel: VortexInviteViewModel) {
     val formData by viewModel.formData.collectAsState()
     val selectedContacts by viewModel.selectedContacts.collectAsState()
     val contactInviteStates by viewModel.contactInviteStates.collectAsState()
+    val context = LocalContext.current
     
     Column(
         modifier = Modifier
@@ -265,6 +328,11 @@ private fun MainFormView(viewModel: VortexInviteViewModel) {
                 onInvite = { contact -> viewModel.inviteContact(contact) }
             )
         }
+        
+        // Note: Components like FindFriendsView, InviteContactsView, InvitationSuggestionsView,
+        // IncomingInvitationsView, and OutgoingInvitationsView are rendered based on widget
+        // configuration blocks (via RenderBlock). They are NOT rendered here as standalone
+        // components to avoid duplication and to respect the widget configuration order.
         
         Spacer(modifier = Modifier.height(32.dp))
     }
@@ -457,6 +525,84 @@ private fun RenderBlock(
                 block = block,
                 theme = theme,
                 onClick = { /* Handle button click */ }
+            )
+        }
+        
+        // Find Friends component
+        "find-friends", "vrtx-find-friends" -> {
+            viewModel.findFriendsConfig?.let { findFriendsConfig ->
+                FindFriendsView(
+                    config = findFriendsConfig,
+                    client = viewModel.vortexClient,
+                    widgetId = viewModel.widgetId,
+                    groups = viewModel.groupList,
+                    unfurlConfig = viewModel.unfurlConfig,
+                    onInvitationSent = {
+                        viewModel.fireInvitationSentEvent(InvitationSentEvent.InvitationSource.FIND_FRIENDS)
+                    },
+                    block = block
+                )
+            }
+        }
+        
+        // Invite Contacts (SMS) component
+        "invite-contacts", "vrtx-invite-contacts", "sms-invitations", "vrtx-sms-invitations" -> {
+            viewModel.inviteContactsConfig?.let { inviteContactsConfig ->
+                val context = LocalContext.current
+                InviteContactsView(
+                    config = inviteContactsConfig,
+                    client = viewModel.vortexClient,
+                    widgetId = viewModel.widgetId,
+                    groups = viewModel.groupList,
+                    shareMessage = viewModel.shareMessage,
+                    block = block,
+                    onOpenSms = { phoneNumber, message ->
+                        val intent = Intent(Intent.ACTION_SENDTO).apply {
+                            data = Uri.parse("smsto:$phoneNumber")
+                            putExtra("sms_body", message)
+                        }
+                        context.startActivity(intent)
+                    },
+                    onInvitationSent = {
+                        viewModel.fireInvitationSentEvent(InvitationSentEvent.InvitationSource.INVITE_CONTACTS)
+                    }
+                )
+            }
+        }
+        
+        // Invitation Suggestions component
+        "invitation-suggestions", "vrtx-invitation-suggestions" -> {
+            viewModel.invitationSuggestionsConfig?.let { suggestionsConfig ->
+                InvitationSuggestionsView(
+                    config = suggestionsConfig,
+                    client = viewModel.vortexClient,
+                    widgetId = viewModel.widgetId,
+                    groups = viewModel.groupList,
+                    unfurlConfig = viewModel.unfurlConfig,
+                    onInvitationSent = {
+                        viewModel.fireInvitationSentEvent(InvitationSentEvent.InvitationSource.INVITATION_SUGGESTIONS)
+                    },
+                    block = block
+                )
+            }
+        }
+        
+        // Incoming Invitations component
+        "incoming-invitations", "vrtx-incoming-invitations" -> {
+            IncomingInvitationsView(
+                client = viewModel.vortexClient,
+                config = viewModel.incomingInvitationsConfig,
+                block = block
+            )
+        }
+        
+        // Outgoing Invitations component
+        "outgoing-invitations", "vrtx-outgoing-invitations" -> {
+            OutgoingInvitationsView(
+                client = viewModel.vortexClient,
+                config = viewModel.outgoingInvitationsConfig,
+                invitationSentEvent = viewModel.invitationSentEvent,
+                block = block
             )
         }
         
@@ -934,19 +1080,10 @@ private fun QrCodeView(viewModel: VortexInviteViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(32.dp),
+            .padding(horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            text = "Scan to Join",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = VortexColors.Gray33
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
         shareableLink?.let { link ->
             val qrBitmap = remember(link) { generateQrCode(link) }
             qrBitmap?.let { bitmap ->
@@ -954,19 +1091,13 @@ private fun QrCodeView(viewModel: VortexInviteViewModel) {
                     bitmap = bitmap.asImageBitmap(),
                     contentDescription = "QR Code",
                     modifier = Modifier
-                        .size(200.dp)
-                        .background(Color.White, RoundedCornerShape(8.dp))
-                        .padding(8.dp)
+                        .size(250.dp)
+                        .background(Color.White, RoundedCornerShape(10.dp))
+                        .padding(20.dp)
                 )
             }
         } ?: run {
             CircularProgressIndicator(color = VortexColors.Gray66)
-        }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        Button(onClick = { viewModel.navigateBack() }) {
-            Text("Done")
         }
     }
 }

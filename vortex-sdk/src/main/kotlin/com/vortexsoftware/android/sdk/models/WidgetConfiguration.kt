@@ -137,6 +137,13 @@ data class Theme(
                 getOption("--color-primary-foreground")?.let { parseHexColor(it) }
 
     /**
+     * Get button text alignment from theme options
+     * Returns "left", "center", or "right" (default: "center")
+     */
+    val buttonTextAlign: String
+        get() = getOption("--vrtx-icon-button-text-align") ?: "center"
+
+    /**
      * Get surface background color
      */
     val surfaceBackgroundColor: Long?
@@ -178,13 +185,44 @@ data class ElementNode(
 ) {
     companion object {
         fun fromDTO(dto: ElementNodeDTO): ElementNode {
+            // Parse attributes from JsonObject manually
+            val parsedAttributes = dto.attributes?.let { attrsJson ->
+                attrsJson.mapValues { (key, value) ->
+                    when (value) {
+                        is kotlinx.serialization.json.JsonPrimitive -> {
+                            when {
+                                value.isString -> AttributeValue.StringValue(value.content)
+                                value.content == "true" || value.content == "false" -> 
+                                    AttributeValue.BoolValue(value.content.toBoolean())
+                                else -> AttributeValue.StringValue(value.content)
+                            }
+                        }
+                        is kotlinx.serialization.json.JsonArray -> {
+                            val strings = value.mapNotNull { item ->
+                                (item as? kotlinx.serialization.json.JsonPrimitive)?.content
+                            }
+                            AttributeValue.StringValue(strings.joinToString(", "))
+                        }
+                        else -> AttributeValue.StringValue(value.toString())
+                    }
+                }
+            } ?: emptyMap()
+            
+            // Debug logging for attributes parsing
+            if (dto.subtype == "vrtx-incoming-invitations" || dto.subtype == "vrtx-find-friends") {
+                android.util.Log.d("VortexSDK", "ElementNode.fromDTO - subtype: ${dto.subtype}")
+                android.util.Log.d("VortexSDK", "ElementNode.fromDTO - dto.attributes (raw): ${dto.attributes}")
+                android.util.Log.d("VortexSDK", "ElementNode.fromDTO - parsedAttributes keys: ${parsedAttributes.keys}")
+                android.util.Log.d("VortexSDK", "ElementNode.fromDTO - parsedAttributes: $parsedAttributes")
+            }
+            
             return ElementNode(
                 id = dto.id,
                 type = dto.type,
                 subtype = dto.subtype,
                 tagName = dto.tagName,
                 schemaVersion = dto.schemaVersion,
-                attributes = dto.attributes?.mapValues { (_, v) -> AttributeValue.fromDTO(v) } ?: emptyMap(),
+                attributes = parsedAttributes,
                 style = dto.style ?: emptyMap(),
                 textContent = dto.textContent,
                 theme = dto.theme?.let { Theme.fromDTO(it) },
@@ -229,6 +267,23 @@ data class ElementNode(
         } catch (e: Exception) {
             null
         }
+    }
+    
+    /**
+     * Get a theme option value by key from block.theme.options
+     * 
+     * @param key The theme option key (e.g., "--vrtx-incoming-invitations-title-color")
+     * @return The value if found, null otherwise
+     */
+    fun getThemeOption(key: String): String? {
+        return theme?.options?.find { it.key == key }?.value?.takeIf { it.isNotBlank() }
+    }
+    
+    /**
+     * Get the title from attributes
+     */
+    fun getTitle(): String? {
+        return getString("title") ?: getString("label")
     }
 }
 

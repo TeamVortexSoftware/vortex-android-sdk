@@ -40,7 +40,8 @@ import kotlinx.coroutines.flow.asStateFlow
 class VortexConfigurationPrefetcher(
     val componentId: String,
     private val apiBaseUrl: String = VortexClient.DEFAULT_BASE_URL,
-    private val enableLogging: Boolean = false
+    private val enableLogging: Boolean = false,
+    private val locale: String? = null
 ) {
     private val client = VortexClient(
         baseUrl = apiBaseUrl,
@@ -94,7 +95,7 @@ class VortexConfigurationPrefetcher(
                 enableLogging = enableLogging
             )
             
-            val result = clientWithJwt.getWidgetConfiguration(componentId)
+            val result = clientWithJwt.getWidgetConfiguration(componentId, locale)
             
             result.fold(
                 onSuccess = { response ->

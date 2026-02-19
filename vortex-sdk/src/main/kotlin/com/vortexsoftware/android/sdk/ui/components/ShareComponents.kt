@@ -46,6 +46,7 @@ fun ShareOptionsView(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .padding(horizontal = 16.dp)
             .padding(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -181,53 +182,65 @@ fun ShareButton(
 ) {
     val backgroundStyle = theme?.buttonBackgroundStyle
     val foregroundColor = theme?.buttonTextColor?.let { Color(it.toInt()) } ?: VortexColors.Gray33
+    val textAlign = theme?.buttonTextAlign ?: "center"
+    val horizontalArrangement = when (textAlign.lowercase()) {
+        "left" -> Arrangement.Start
+        "right" -> Arrangement.End
+        else -> Arrangement.Center
+    }
     
-    Button(
-        onClick = onClick,
-        enabled = !isLoading,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Color.Transparent,
-            contentColor = foregroundColor,
-            disabledContainerColor = Color.Transparent,
-            disabledContentColor = foregroundColor.copy(alpha = 0.6f)
-        ),
-        shape = RoundedCornerShape(10.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+    // Apply background style first, then pass to Button
+    // This ensures the gradient is properly clipped to the button shape
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .backgroundStyle(backgroundStyle)
     ) {
-        Row(
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
+        Button(
+            onClick = onClick,
+            enabled = !isLoading,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.Transparent,
+                contentColor = foregroundColor,
+                disabledContainerColor = Color.Transparent,
+                disabledContentColor = foregroundColor.copy(alpha = 0.6f)
+            ),
+            shape = RoundedCornerShape(10.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
-                    color = foregroundColor,
-                    strokeWidth = 2.dp
-                )
-            } else {
-                Box(
-                    modifier = Modifier.size(width = 24.dp, height = 18.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    VortexIcon(
-                        name = icon,
-                        size = 18,
-                        color = foregroundColor
+            Row(
+                horizontalArrangement = horizontalArrangement,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = foregroundColor,
+                        strokeWidth = 2.dp
                     )
+                } else {
+                    Box(
+                        modifier = Modifier.size(width = 24.dp, height = 18.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        VortexIcon(
+                            name = icon,
+                            size = 18,
+                            color = foregroundColor
+                        )
+                    }
                 }
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 14.sp
+                )
             }
-            
-            Spacer(modifier = Modifier.width(8.dp))
-            
-            Text(
-                text = title,
-                fontWeight = FontWeight.Medium,
-                fontSize = 14.sp
-            )
         }
     }
 }

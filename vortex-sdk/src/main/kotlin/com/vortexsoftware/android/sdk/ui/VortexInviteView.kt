@@ -606,6 +606,23 @@ private fun RenderBlock(
             )
         }
         
+        // Search Box component
+        "search-box", "vrtx-search-box" -> {
+            viewModel.searchBoxConfig?.let { searchBoxConfig ->
+                SearchBoxView(
+                    config = searchBoxConfig,
+                    client = viewModel.vortexClient,
+                    widgetId = viewModel.widgetId,
+                    groups = viewModel.groupList,
+                    unfurlConfig = viewModel.unfurlConfig,
+                    onInvitationSent = {
+                        viewModel.fireInvitationSentEvent(InvitationSentEvent.InvitationSource.SEARCH_BOX)
+                    },
+                    block = block
+                )
+            }
+        }
+        
         else -> {
             // Render children for unknown block types
             block.children.forEach { child ->

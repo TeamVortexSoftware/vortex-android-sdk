@@ -70,6 +70,11 @@ import com.vortexsoftware.android.sdk.viewmodels.VortexInviteViewModel
  * @param invitationSuggestionsConfig Optional configuration for the Invitation Suggestions component
  * @param incomingInvitationsConfig Optional configuration for the Incoming Invitations component
  * @param outgoingInvitationsConfig Optional configuration for the Outgoing Invitations component
+ * @param scope Optional scope identifier for scoping invitations (e.g., team ID, project ID).
+ *              Used together with [scopeType] to create group context for API calls.
+ *              This is a convenience alternative to [group] — if [group] is provided, it takes precedence.
+ * @param scopeType Optional type of the scope (e.g., "team", "project").
+ *                  Used together with [scope] to create group context for API calls.
  */
 @Composable
 fun VortexInviteView(
@@ -92,15 +97,23 @@ fun VortexInviteView(
     incomingInvitationsConfig: IncomingInvitationsConfig? = null,
     outgoingInvitationsConfig: OutgoingInvitationsConfig? = null,
     searchBoxConfig: SearchBoxConfig? = null,
-    unfurlConfig: UnfurlConfig? = null
+    unfurlConfig: UnfurlConfig? = null,
+    scope: String? = null,
+    scopeType: String? = null
 ) {
+    // Convert scope/scopeType to GroupDTO if group is not provided
+    val effectiveGroup = group ?: if (scope != null && scopeType != null) {
+        GroupDTO.create(id = scope, name = scope, type = scopeType)
+    } else {
+        null
+    }
     val viewModel: VortexInviteViewModel = viewModel(
         factory = VortexInviteViewModel.Factory(
             componentId = componentId,
             jwt = jwt,
             apiBaseUrl = apiBaseUrl,
             analyticsBaseUrl = analyticsBaseUrl,
-            group = group,
+            group = effectiveGroup,
             segmentation = segmentation,
             googleClientId = googleClientId,
             onDismiss = onDismiss,

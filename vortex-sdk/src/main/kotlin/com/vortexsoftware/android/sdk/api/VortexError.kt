@@ -51,6 +51,13 @@ sealed class VortexError : Exception() {
     ) : VortexError()
     
     /**
+     * Conflict error (e.g., resource already exists or action already performed)
+     */
+    data class Conflict(
+        override val message: String = "Conflict"
+    ) : VortexError()
+    
+    /**
      * Unknown or unexpected error
      */
     data class Unknown(
@@ -67,6 +74,7 @@ sealed class VortexError : Exception() {
                 401 -> Unauthorized(message ?: "Authentication required")
                 403 -> Unauthorized(message ?: "Access forbidden")
                 404 -> NotFound(message ?: "Resource not found")
+                409 -> Conflict(message ?: "Conflict")
                 in 400..499 -> InvalidRequest(message ?: "Invalid request (HTTP $statusCode)")
                 in 500..599 -> ServerError(statusCode, message ?: "Server error (HTTP $statusCode)")
                 else -> Unknown(message ?: "Unexpected error (HTTP $statusCode)")

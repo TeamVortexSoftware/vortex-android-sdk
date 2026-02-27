@@ -16,6 +16,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vortexsoftware.android.sdk.api.VortexClient
+import com.vortexsoftware.android.sdk.api.VortexError
 import com.vortexsoftware.android.sdk.models.*
 import kotlinx.coroutines.launch
 
@@ -202,10 +203,13 @@ fun IncomingInvitationsView(
                                 
                                 if (shouldProceed && item.isVortexInvitation) {
                                     // Only call API for Vortex invitations
-                                    client.acceptInvitation(item.id)
-                                        .onSuccess {
-                                            invitations = invitations.filter { it.id != item.id }
-                                        }
+                                    val result = client.acceptInvitation(item.id)
+                                    val shouldRemove = result.isSuccess || result.exceptionOrNull().let {
+                                        it is VortexError.NotFound || it is VortexError.Conflict
+                                    }
+                                    if (shouldRemove) {
+                                        invitations = invitations.filter { it.id != item.id }
+                                    }
                                 } else if (shouldProceed) {
                                     // For internal invitations, just remove from list
                                     invitations = invitations.filter { it.id != item.id }
@@ -222,10 +226,13 @@ fun IncomingInvitationsView(
                                 
                                 if (shouldProceed && item.isVortexInvitation) {
                                     // Only call API for Vortex invitations
-                                    client.deleteIncomingInvitation(item.id)
-                                        .onSuccess {
-                                            invitations = invitations.filter { it.id != item.id }
-                                        }
+                                    val result = client.deleteIncomingInvitation(item.id)
+                                    val shouldRemove = result.isSuccess || result.exceptionOrNull().let {
+                                        it is VortexError.NotFound || it is VortexError.Conflict
+                                    }
+                                    if (shouldRemove) {
+                                        invitations = invitations.filter { it.id != item.id }
+                                    }
                                 } else if (shouldProceed) {
                                     // For internal invitations, just remove from list
                                     invitations = invitations.filter { it.id != item.id }

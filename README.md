@@ -78,7 +78,21 @@ VortexInviteView(
 )
 ```
 
-### With Group Context
+### With Scope Context
+
+Use `scope` and `scopeType` convenience parameters to scope invitations to a team, project, or other entity:
+
+```kotlin
+VortexInviteView(
+    componentId = "your-widget-id",
+    jwt = "your-jwt-token",
+    scope = "team-123",
+    scopeType = "team",
+    onDismiss = { /* handle dismiss */ }
+)
+```
+
+Alternatively, you can pass a `GroupDTO` directly for more control:
 
 ```kotlin
 import com.vortexsoftware.android.sdk.api.dto.GroupDTO
@@ -170,6 +184,8 @@ prefetcher.isPrefetched.collect { isPrefetched -> /* ... */ }
 | `componentId` | `String` | Yes | - | Widget ID from Vortex dashboard |
 | `jwt` | `String?` | No | `null` | JWT token for authenticated requests |
 | `group` | `GroupDTO?` | No | `null` | Group context for invitations |
+| `scope` | `String?` | No | `null` | Scope identifier (e.g., team ID). Convenience alternative to `group` |
+| `scopeType` | `String?` | No | `null` | Scope type (e.g., "team", "project"). Used with `scope` |
 | `googleClientId` | `String?` | No | `null` | Google OAuth client ID for Google Contacts |
 | `onDismiss` | `(() -> Unit)?` | No | `null` | Callback when widget is dismissed |
 

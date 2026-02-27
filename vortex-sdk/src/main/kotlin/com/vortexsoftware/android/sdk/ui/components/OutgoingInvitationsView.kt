@@ -16,6 +16,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vortexsoftware.android.sdk.api.VortexClient
+import com.vortexsoftware.android.sdk.api.VortexError
 import com.vortexsoftware.android.sdk.models.*
 import kotlinx.coroutines.launch
 
@@ -165,11 +166,14 @@ fun OutgoingInvitationsView(
                         onCancel = {
                             scope.launch {
                                 actionInProgress = item.id
-                                client.revokeInvitation(item.id)
-                                    .onSuccess {
-                                        config?.onCancel?.invoke(item)
-                                        invitations = invitations.filter { it.id != item.id }
-                                    }
+                                val result = client.revokeInvitation(item.id)
+                                val shouldRemove = result.isSuccess || result.exceptionOrNull().let {
+                                    it is VortexError.NotFound || it is VortexError.Conflict
+                                }
+                                if (shouldRemove) {
+                                    config?.onCancel?.invoke(item)
+                                    invitations = invitations.filter { it.id != item.id }
+                                }
                                 actionInProgress = null
                             }
                         }

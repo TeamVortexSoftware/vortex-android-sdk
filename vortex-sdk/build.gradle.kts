@@ -17,6 +17,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+
+        buildConfigField("String", "VERSION_NAME", "\"${findProperty("VERSION_NAME")}\"")
     }
 
     buildTypes {
@@ -40,6 +42,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -86,7 +89,7 @@ mavenPublishing {
     publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL)
     signAllPublications()
 
-    coordinates("com.vortexsoftware.android", "vortex-sdk", "1.0.0")
+    coordinates("com.vortexsoftware.android", "vortex-sdk", findProperty("VERSION_NAME") as String)
 
     pom {
         name.set("Vortex Android SDK")

@@ -95,11 +95,13 @@ The publishing configuration is already set up in the project:
 
 ### Step 1: Update Version
 
-Edit `vortex-sdk/build.gradle.kts` and update the version in the `coordinates()` call:
+Edit `gradle.properties` — the single source of truth for the SDK version:
 
-```kotlin
-coordinates("com.vortexsoftware.android", "vortex-sdk", "1.0.0")
+```properties
+VERSION_NAME=1.0.0
 ```
+
+This value is read automatically by `build.gradle.kts` (Maven coordinates) and `VortexSDK.kt` (runtime constant via `BuildConfig`).
 
 ### Step 2: Build and Test
 

@@ -28,10 +28,10 @@ package com.vortexsoftware.android.sdk
  */
 object VortexSDK {
     /**
-     * SDK version
+     * SDK version — read from gradle.properties (single source of truth).
      */
-    const val VERSION = "1.0.0"
-    
+    val VERSION: String = BuildConfig.VERSION_NAME
+
     /**
      * SDK name
      */

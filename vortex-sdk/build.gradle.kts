@@ -3,6 +3,9 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.dokka)
+    alias(libs.plugins.maven.publish)
+    signing
 }
 
 android {
@@ -71,4 +74,46 @@ dependencies {
 
     // QR Code generation
     implementation(libs.zxing.core)
+}
+
+// === Publishing Configuration ===
+
+signing {
+    useGpgCmd()
+}
+
+mavenPublishing {
+    publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL)
+    signAllPublications()
+
+    coordinates("com.vortexsoftware.android", "vortex-sdk", "1.0.0")
+
+    pom {
+        name.set("Vortex Android SDK")
+        description.set("Invitations-as-a-service SDK for Android. Dynamic invitation forms with email, SMS, social sharing, QR codes, and more.")
+        url.set("https://github.com/teamvortexsoftware/vortex-android-sdk")
+
+        licenses {
+            license {
+                name.set("The Apache License, Version 2.0")
+                url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+            }
+        }
+
+        developers {
+            developer {
+                id.set("vortexsoftware")
+                name.set("Vortex Software")
+                email.set("dev@vortexsoftware.com")
+                organization.set("Vortex Software")
+                organizationUrl.set("https://vortexsoftware.com")
+            }
+        }
+
+        scm {
+            connection.set("scm:git:git://github.com/teamvortexsoftware/vortex-android-sdk.git")
+            developerConnection.set("scm:git:ssh://github.com/teamvortexsoftware/vortex-android-sdk.git")
+            url.set("https://github.com/teamvortexsoftware/vortex-android-sdk")
+        }
+    }
 }

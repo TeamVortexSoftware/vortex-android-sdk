@@ -42,6 +42,8 @@ fun InvitationSuggestionsView(
     groups: List<GroupDTO>?,
     unfurlConfig: UnfurlConfig? = null,
     onInvitationSent: (() -> Unit)? = null,
+    outgoingInvitationUserIds: kotlinx.coroutines.flow.StateFlow<Set<String>>? = null,
+    isOutgoingInvitationsLoaded: kotlinx.coroutines.flow.StateFlow<Boolean>? = null,
     block: ElementNode? = null,
     modifier: Modifier = Modifier
 ) {
@@ -73,13 +75,25 @@ fun InvitationSuggestionsView(
     
     val scope = rememberCoroutineScope()
     
-    // Filter out dismissed and invited suggestions
-    val visibleSuggestions = suggestions.filter { 
-        !dismissedIds.contains(it.id) && !invitedIds.contains(it.id) 
+    // Observe outgoing invitation user IDs for filtering
+    val outgoingIds = outgoingInvitationUserIds?.collectAsState()?.value ?: emptySet()
+    val outgoingLoaded = isOutgoingInvitationsLoaded?.collectAsState()?.value ?: true
+
+    // When outgoing invitations are refreshed (e.g. after revoke), remove contacts
+    // from invitedIds if they are no longer in the outgoing set
+    LaunchedEffect(outgoingIds) {
+        if (invitedIds.isNotEmpty()) {
+            invitedIds = invitedIds.filter { id -> outgoingIds.contains(id) }.toSet()
+        }
+    }
+
+    // Filter out dismissed, invited, and contacts with outstanding outgoing invitations
+    val visibleSuggestions = suggestions.filter {
+        !dismissedIds.contains(it.id) && !invitedIds.contains(it.id) && !outgoingIds.contains(it.id)
     }
     
-    // Don't render if no suggestions
-    if (visibleSuggestions.isEmpty()) return
+    // Don't render if no suggestions (and outgoing invitations are loaded)
+    if (visibleSuggestions.isEmpty() && outgoingLoaded) return
     
     Column(
         modifier = modifier
@@ -96,6 +110,12 @@ fun InvitationSuggestionsView(
                 color = titleColor,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
+        }
+        
+        // Show shimmer while outgoing invitations are loading
+        if (!outgoingLoaded) {
+            ShimmerPlaceholderList(count = 3)
+            return@Column
         }
         
         visibleSuggestions.forEach { suggestion ->

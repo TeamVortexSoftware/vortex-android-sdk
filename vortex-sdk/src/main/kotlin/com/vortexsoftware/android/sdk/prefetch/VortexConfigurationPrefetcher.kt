@@ -109,6 +109,16 @@ class VortexConfigurationPrefetcher(
                         deploymentId = deploymentId
                     )
                     
+                    // Also prefetch outgoing invitations (silently fail if it errors)
+                    try {
+                        clientWithJwt.getOutgoingInvitations()
+                            .onSuccess { invitations ->
+                                VortexConfigurationCache.setOutgoingInvitations(jwt, invitations)
+                            }
+                    } catch (_: Exception) {
+                        // Silently fail - outgoing invitations prefetch is best-effort
+                    }
+                    
                     _isPrefetched.value = true
                     _isLoading.value = false
                     config

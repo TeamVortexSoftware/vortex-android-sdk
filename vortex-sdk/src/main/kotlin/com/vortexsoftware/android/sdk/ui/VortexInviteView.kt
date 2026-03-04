@@ -553,6 +553,8 @@ private fun RenderBlock(
                     onInvitationSent = {
                         viewModel.fireInvitationSentEvent(InvitationSentEvent.InvitationSource.FIND_FRIENDS)
                     },
+                    outgoingInvitationUserIds = viewModel.outgoingInvitationUserIds,
+                    isOutgoingInvitationsLoaded = viewModel.isOutgoingInvitationsLoaded,
                     block = block
                 )
             }
@@ -595,6 +597,8 @@ private fun RenderBlock(
                     onInvitationSent = {
                         viewModel.fireInvitationSentEvent(InvitationSentEvent.InvitationSource.INVITATION_SUGGESTIONS)
                     },
+                    outgoingInvitationUserIds = viewModel.outgoingInvitationUserIds,
+                    isOutgoingInvitationsLoaded = viewModel.isOutgoingInvitationsLoaded,
                     block = block
                 )
             }
@@ -615,6 +619,9 @@ private fun RenderBlock(
                 client = viewModel.vortexClient,
                 config = viewModel.outgoingInvitationsConfig,
                 invitationSentEvent = viewModel.invitationSentEvent,
+                fetchedOutgoingInvitations = viewModel.fetchedOutgoingInvitations,
+                isOutgoingInvitationsLoaded = viewModel.isOutgoingInvitationsLoaded,
+                onRefreshOutgoingInvitations = { viewModel.fetchOutgoingInvitations() },
                 block = block
             )
         }
@@ -631,6 +638,7 @@ private fun RenderBlock(
                     onInvitationSent = {
                         viewModel.fireInvitationSentEvent(InvitationSentEvent.InvitationSource.SEARCH_BOX)
                     },
+                    outgoingInvitationUserIds = viewModel.outgoingInvitationUserIds,
                     block = block
                 )
             }

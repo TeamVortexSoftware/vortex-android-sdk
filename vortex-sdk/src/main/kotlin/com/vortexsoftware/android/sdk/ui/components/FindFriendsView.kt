@@ -46,6 +46,8 @@ fun FindFriendsView(
     groups: List<GroupDTO>?,
     unfurlConfig: UnfurlConfig? = null,
     onInvitationSent: (() -> Unit)? = null,
+    outgoingInvitationUserIds: kotlinx.coroutines.flow.StateFlow<Set<String>>? = null,
+    isOutgoingInvitationsLoaded: kotlinx.coroutines.flow.StateFlow<Boolean>? = null,
     block: ElementNode? = null,
     modifier: Modifier = Modifier
 ) {
@@ -74,11 +76,25 @@ fun FindFriendsView(
     
     val scope = rememberCoroutineScope()
     
-    // Filter out already connected contacts
-    val visibleContacts = contacts.filter { !connectedIds.contains(it.id) }
+    // Observe outgoing invitation user IDs for filtering
+    val outgoingIds = outgoingInvitationUserIds?.collectAsState()?.value ?: emptySet()
+    val outgoingLoaded = isOutgoingInvitationsLoaded?.collectAsState()?.value ?: true
     
-    // Don't render if no contacts
-    if (visibleContacts.isEmpty()) return
+    // When outgoing invitations are refreshed (e.g. after revoke), remove contacts
+    // from connectedIds if they are no longer in the outgoing set
+    LaunchedEffect(outgoingIds) {
+        if (connectedIds.isNotEmpty()) {
+            connectedIds = connectedIds.filter { id -> outgoingIds.contains(id) }.toSet()
+        }
+    }
+    
+    // Filter out already connected contacts and contacts with outstanding outgoing invitations
+    val visibleContacts = contacts.filter { 
+        !connectedIds.contains(it.id) && !outgoingIds.contains(it.id)
+    }
+    
+    // Don't render if no contacts (and outgoing invitations are loaded)
+    if (visibleContacts.isEmpty() && outgoingLoaded) return
     
     Column(
         modifier = modifier
@@ -95,6 +111,12 @@ fun FindFriendsView(
                 color = titleColor,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
+        }
+        
+        // Show shimmer while outgoing invitations are loading
+        if (!outgoingLoaded) {
+            ShimmerPlaceholderList(count = 3)
+            return@Column
         }
         
         visibleContacts.forEach { contact ->

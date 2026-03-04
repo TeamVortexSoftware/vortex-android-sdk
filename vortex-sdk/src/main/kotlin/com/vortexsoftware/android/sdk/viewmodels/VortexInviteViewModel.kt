@@ -12,6 +12,7 @@ import com.google.android.gms.auth.GoogleAuthUtil
 import com.vortexsoftware.android.sdk.analytics.*
 import com.vortexsoftware.android.sdk.api.VortexClient
 import com.vortexsoftware.android.sdk.api.dto.GroupDTO
+import com.vortexsoftware.android.sdk.api.dto.OutgoingInvitation
 import com.vortexsoftware.android.sdk.cache.VortexConfigurationCache
 import com.vortexsoftware.android.sdk.models.*
 import kotlinx.coroutines.Dispatchers
@@ -128,6 +129,16 @@ class VortexInviteViewModel(
     // Invitation sent event - observed by OutgoingInvitationsView to trigger refresh
     private val _invitationSentEvent = MutableStateFlow<InvitationSentEvent?>(null)
     val invitationSentEvent: StateFlow<InvitationSentEvent?> = _invitationSentEvent.asStateFlow()
+    
+    // Centralized outgoing invitations state
+    private val _fetchedOutgoingInvitations = MutableStateFlow<List<OutgoingInvitation>>(emptyList())
+    val fetchedOutgoingInvitations: StateFlow<List<OutgoingInvitation>> = _fetchedOutgoingInvitations.asStateFlow()
+    
+    private val _outgoingInvitationUserIds = MutableStateFlow<Set<String>>(emptySet())
+    val outgoingInvitationUserIds: StateFlow<Set<String>> = _outgoingInvitationUserIds.asStateFlow()
+    
+    private val _isOutgoingInvitationsLoaded = MutableStateFlow(false)
+    val isOutgoingInvitationsLoaded: StateFlow<Boolean> = _isOutgoingInvitationsLoaded.asStateFlow()
     
     /**
      * Fire an invitation sent event that other subcomponents can observe.
@@ -333,6 +344,18 @@ class VortexInviteViewModel(
         viewModelScope.launch {
             _error.value = null
             
+            // Early cache check: populate outgoing invitations from cache if available
+            if (jwt != null) {
+                VortexConfigurationCache.getOutgoingInvitations(jwt)?.let { cached ->
+                    _fetchedOutgoingInvitations.value = cached
+                    updateOutgoingInvitationUserIds()
+                    _isOutgoingInvitationsLoaded.value = true
+                    if (enableLogging) {
+                        android.util.Log.d("VortexInviteViewModel", "Using cached outgoing invitations")
+                    }
+                }
+            }
+            
             // Step 1: Check for initial configuration (passed via init) or cached configuration
             var hasCachedConfig = false
             
@@ -380,6 +403,9 @@ class VortexInviteViewModel(
                     // Track widget render on successful load
                     trackWidgetRender()
                     
+                    // Fetch outgoing invitations in background (SWR revalidation)
+                    fetchOutgoingInvitations()
+                    
                     if (enableLogging) {
                         android.util.Log.d("VortexInviteViewModel", "Fresh configuration loaded and cached")
                     }
@@ -396,6 +422,49 @@ class VortexInviteViewModel(
                     _isLoading.value = false
                 }
         }
+    }
+    
+    /**
+     * Fetch outgoing invitations from API and update the centralized cache.
+     * Called after config loads and when invitations are sent (SWR pattern).
+     */
+    fun fetchOutgoingInvitations() {
+        viewModelScope.launch {
+            client.getOutgoingInvitations()
+                .onSuccess { fetched ->
+                    _fetchedOutgoingInvitations.value = fetched
+                    updateOutgoingInvitationUserIds()
+                    _isOutgoingInvitationsLoaded.value = true
+                    // Update cache
+                    jwt?.let { VortexConfigurationCache.setOutgoingInvitations(it, fetched) }
+                    if (enableLogging) {
+                        android.util.Log.d("VortexInviteViewModel", "Fetched ${fetched.size} outgoing invitations")
+                    }
+                }
+                .onFailure { e ->
+                    // Still mark as loaded even on failure so shimmer goes away
+                    _isOutgoingInvitationsLoaded.value = true
+                    if (enableLogging) {
+                        android.util.Log.e("VortexInviteViewModel", "Failed to fetch outgoing invitations: ${e.message}")
+                    }
+                }
+        }
+    }
+    
+    /**
+     * Update the set of outgoing invitation user IDs from both internal and API-fetched invitations.
+     */
+    private fun updateOutgoingInvitationUserIds() {
+        val ids = mutableSetOf<String>()
+        // From internal (app-provided) outgoing invitations
+        outgoingInvitationsConfig?.internalInvitations?.forEach { item ->
+            ids.add(item.id)
+        }
+        // From API-fetched outgoing invitations
+        _fetchedOutgoingInvitations.value.forEach { invitation ->
+            invitation.targets?.firstOrNull()?.targetValue?.let { ids.add(it) }
+        }
+        _outgoingInvitationUserIds.value = ids
     }
     
     /**

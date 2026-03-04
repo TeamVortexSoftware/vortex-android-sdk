@@ -17,7 +17,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vortexsoftware.android.sdk.api.VortexClient
 import com.vortexsoftware.android.sdk.api.VortexError
+import com.vortexsoftware.android.sdk.api.dto.OutgoingInvitation
 import com.vortexsoftware.android.sdk.models.*
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 // ============================================================================
@@ -26,9 +28,15 @@ import kotlinx.coroutines.launch
 
 /**
  * Displays outgoing (sent) invitations with cancel functionality.
+ * Uses centralized outgoing invitations from the ViewModel instead of making direct API calls.
+ * Shows shimmer placeholders while loading, and supports SWR (stale-while-revalidate) pattern.
  * 
- * @param client VortexClient for API calls
+ * @param client VortexClient for API calls (used for revoking invitations)
  * @param config Configuration with callbacks
+ * @param invitationSentEvent StateFlow that fires when an invitation is sent from another component
+ * @param fetchedOutgoingInvitations StateFlow of API-fetched outgoing invitations from ViewModel
+ * @param isOutgoingInvitationsLoaded StateFlow indicating whether outgoing invitations have been loaded
+ * @param onRefreshOutgoingInvitations Callback to trigger a refresh of outgoing invitations (SWR)
  * @param block Optional ElementNode containing theme options and settings from widget config
  * @param modifier Modifier for the component
  */
@@ -36,7 +44,10 @@ import kotlinx.coroutines.launch
 fun OutgoingInvitationsView(
     client: VortexClient,
     config: OutgoingInvitationsConfig?,
-    invitationSentEvent: kotlinx.coroutines.flow.StateFlow<InvitationSentEvent?>? = null,
+    invitationSentEvent: StateFlow<InvitationSentEvent?>? = null,
+    fetchedOutgoingInvitations: StateFlow<List<OutgoingInvitation>>? = null,
+    isOutgoingInvitationsLoaded: StateFlow<Boolean>? = null,
+    onRefreshOutgoingInvitations: (() -> Unit)? = null,
     block: ElementNode? = null,
     modifier: Modifier = Modifier
 ) {
@@ -63,46 +74,59 @@ fun OutgoingInvitationsView(
     val title = block?.getTitle()
     val cancelButtonText = block?.getCustomButtonLabel("cancelButton") ?: "Cancel"
     val emptyStateMessage = block?.getCustomButtonLabel("emptyStateMessage") ?: "No outgoing invitations"
+    
     var invitations by remember { mutableStateOf<List<OutgoingInvitationItem>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var actionInProgress by remember { mutableStateOf<String?>(null) }
     
     val scope = rememberCoroutineScope()
     
-    // Refresh when an invitation is sent from another component
+    // Observe centralized outgoing invitations from ViewModel
+    val apiInvitations = fetchedOutgoingInvitations?.collectAsState()?.value ?: emptyList()
+    val isLoaded = isOutgoingInvitationsLoaded?.collectAsState()?.value ?: true
+    
+    // Observe invitation sent events for SWR refresh
     val sentEvent = invitationSentEvent?.collectAsState()?.value
     
-    // Load invitations on first composition and when sentEvent changes
-    LaunchedEffect(Unit, sentEvent) {
-        isLoading = true
-        error = null
-        client.getOutgoingInvitations()
-            .onSuccess { fetched ->
+    // Refresh when an invitation is sent (SWR - no shimmer, just refresh in background)
+    LaunchedEffect(sentEvent) {
+        if (sentEvent != null) {
+            onRefreshOutgoingInvitations?.invoke()
+        }
+    }
+    
+    // Rebuild invitations list when API data changes
+    LaunchedEffect(apiInvitations, isLoaded) {
+        if (isLoaded) {
+            try {
                 // Filter out shareable link invitations
-                val filtered = fetched.filter { invitation ->
+                val filtered = apiInvitations.filter { invitation ->
                     invitation.targets?.firstOrNull()?.targetType != "share"
                 }
                 val apiItems = filtered.map { it.toDisplayItem() }
                 // Merge with internal invitations from config
                 val internalItems = config?.internalInvitations ?: emptyList()
                 // Deduplicate: if an API invitation has the same id as an internal one, keep the API one
-                val internalIds = apiItems.map { it.id }.toSet()
-                val uniqueInternal = internalItems.filter { it.id !in internalIds }
+                val apiIds = apiItems.map { it.id }.toSet()
+                val uniqueInternal = internalItems.filter { it.id !in apiIds }
                 invitations = (apiItems + uniqueInternal).sortedBy { it.name.lowercase() }
+            } catch (e: Exception) {
+                if (invitations.isEmpty()) {
+                    error = "Failed to load invitations"
+                }
             }
-            .onFailure { e ->
-                error = "Failed to load invitations"
-            }
-        isLoading = false
+        }
     }
+    
+    // Compute loading state: show shimmer only when not loaded AND we don't have stale data
+    val showShimmer = !isLoaded && invitations.isEmpty()
     
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
     ) {
-        // Title
+        // Title - always visible (even during shimmer)
         if (!title.isNullOrBlank()) {
             Text(
                 text = title,
@@ -114,17 +138,10 @@ fun OutgoingInvitationsView(
         }
         
         when {
-            isLoading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(120.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+            showShimmer -> {
+                ShimmerPlaceholderList(count = 3)
             }
-            error != null -> {
+            error != null && invitations.isEmpty() -> {
                 Text(
                     text = error!!,
                     color = Color.Red,
@@ -134,7 +151,7 @@ fun OutgoingInvitationsView(
                         .padding(vertical = 16.dp)
                 )
             }
-            invitations.isEmpty() -> {
+            invitations.isEmpty() && isLoaded -> {
                 Text(
                     text = emptyStateMessage,
                     color = Color.Gray,
@@ -173,6 +190,8 @@ fun OutgoingInvitationsView(
                                 if (shouldRemove) {
                                     config?.onCancel?.invoke(item)
                                     invitations = invitations.filter { it.id != item.id }
+                                    // Refresh outgoing invitations so filtered components (search, suggestions, find friends) update
+                                    onRefreshOutgoingInvitations?.invoke()
                                 }
                                 actionInProgress = null
                             }

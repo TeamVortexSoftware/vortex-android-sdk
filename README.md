@@ -262,6 +262,7 @@ VortexInviteView(
 3. When the user taps "Connect", the SDK creates an invitation via the Vortex API
 4. The `onInvitationCreated` callback is called after a successful invitation
 5. The section is hidden when there are no contacts to display
+6. Contacts that already have an outstanding outgoing invitation are automatically filtered out (matched by `userId`)
 
 **FindFriendsContact Properties:**
 
@@ -322,6 +323,7 @@ VortexInviteView(
 3. When the user taps "Invite", the SDK creates an invitation via the Vortex API
 4. The `onInvite` callback is called after a successful invitation
 5. When the user taps the X button, the `onDismiss` callback is called and the contact is removed from the list
+6. Contacts that already have an outstanding outgoing invitation are automatically filtered out (matched by `userId`)
 
 **InvitationSuggestionContact Properties:**
 
@@ -385,6 +387,7 @@ VortexInviteView(
 5. The matching contacts are rendered below the search box with a "Connect" button next to each
 6. If the search returns no results, a configurable "no results" message is displayed
 7. When the user taps "Connect", the SDK creates an invitation via the Vortex API and the contact is removed from the list (identical to Find Friends behavior)
+8. Contacts that already have an outstanding outgoing invitation are automatically filtered out (matched by `userId`)
 
 **SearchBoxContact Properties:**
 

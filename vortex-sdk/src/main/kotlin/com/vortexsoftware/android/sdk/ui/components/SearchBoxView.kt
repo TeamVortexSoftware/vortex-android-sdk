@@ -48,6 +48,7 @@ fun SearchBoxView(
     groups: List<GroupDTO>?,
     unfurlConfig: UnfurlConfig? = null,
     onInvitationSent: (() -> Unit)? = null,
+    outgoingInvitationUserIds: kotlinx.coroutines.flow.StateFlow<Set<String>>? = null,
     block: ElementNode? = null,
     modifier: Modifier = Modifier
 ) {
@@ -76,6 +77,9 @@ fun SearchBoxView(
     val connectButtonText = block?.getCustomButtonLabel("connectButton") ?: "Connect"
     val placeholder = block?.getCustomButtonLabel("searchPlaceholder") ?: "Search..."
     val noResultsMessage = block?.getCustomButtonLabel("noResultsMessage") ?: "No results found"
+    
+    // Observe outgoing invitation user IDs for filtering
+    val outgoingIds = outgoingInvitationUserIds?.collectAsState()?.value ?: emptySet()
     
     // Local state
     var searchQuery by remember { mutableStateOf("") }
@@ -181,8 +185,9 @@ fun SearchBoxView(
         
         Spacer(modifier = Modifier.height(12.dp))
         
-        // Results
-        searchResults?.let { results ->
+        // Results (filtered by outgoing invitation user IDs)
+        searchResults?.let { allResults ->
+            val results = allResults.filter { !outgoingIds.contains(it.userId) }
             if (results.isEmpty() && !isSearching) {
                 // No results message
                 Text(

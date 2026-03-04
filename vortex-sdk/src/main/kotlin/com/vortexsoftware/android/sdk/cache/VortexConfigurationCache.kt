@@ -1,5 +1,6 @@
 package com.vortexsoftware.android.sdk.cache
 
+import com.vortexsoftware.android.sdk.api.dto.OutgoingInvitation
 import com.vortexsoftware.android.sdk.models.WidgetConfiguration
 
 /**
@@ -16,6 +17,9 @@ import com.vortexsoftware.android.sdk.models.WidgetConfiguration
 object VortexConfigurationCache {
     
     private val cache = mutableMapOf<String, CachedConfiguration>()
+    
+    /// Cached outgoing invitations keyed by JWT hash
+    private val outgoingInvitationsCache = mutableMapOf<String, List<OutgoingInvitation>>()
     
     /**
      * Cached configuration with metadata
@@ -76,6 +80,43 @@ object VortexConfigurationCache {
     @Synchronized
     fun has(componentId: String): Boolean {
         return cache.containsKey(componentId)
+    }
+    
+    // ========================================================================
+    // Outgoing Invitations Cache
+    // ========================================================================
+    
+    /**
+     * Get cached outgoing invitations.
+     * @param jwt JWT token (used as cache key via hash)
+     * @return Cached outgoing invitations, or null if not cached
+     */
+    @Synchronized
+    fun getOutgoingInvitations(jwt: String): List<OutgoingInvitation>? {
+        return outgoingInvitationsCache[jwt.hashCode().toString()]
+    }
+    
+    /**
+     * Store outgoing invitations in the cache.
+     * @param jwt JWT token (used as cache key via hash)
+     * @param invitations The outgoing invitations to cache
+     */
+    @Synchronized
+    fun setOutgoingInvitations(jwt: String, invitations: List<OutgoingInvitation>) {
+        outgoingInvitationsCache[jwt.hashCode().toString()] = invitations
+    }
+    
+    /**
+     * Clear cached outgoing invitations.
+     * @param jwt Optional JWT to clear specific cache. If null, clears all.
+     */
+    @Synchronized
+    fun clearOutgoingInvitations(jwt: String? = null) {
+        if (jwt != null) {
+            outgoingInvitationsCache.remove(jwt.hashCode().toString())
+        } else {
+            outgoingInvitationsCache.clear()
+        }
     }
     
     /**

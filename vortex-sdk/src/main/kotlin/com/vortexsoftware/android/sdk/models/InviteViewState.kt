@@ -27,5 +27,10 @@ enum class InviteViewState {
     /**
      * QR code display view
      */
-    QR_CODE
+    QR_CODE,
+    
+    /**
+     * Invite contacts (SMS) list view
+     */
+    INVITE_CONTACTS
 }

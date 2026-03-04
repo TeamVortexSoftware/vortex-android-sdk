@@ -341,22 +341,34 @@ class VortexClient(
         phoneNumber: String,
         contactName: String? = null,
         groups: List<GroupDTO>? = null,
-        templateVariables: Map<String, String>? = null
+        templateVariables: Map<String, String>? = null,
+        metadata: Map<String, Any>? = null
     ): Result<String?> {
+        // Build payload matching iOS/RN SDK format:
+        // { smsTarget: { type: "phone", value: [{ value: phoneNumber, name?: contactName }] } }
+        val valueObject = mutableMapOf<String, JsonPrimitive>(
+            "value" to JsonPrimitive(phoneNumber)
+        )
+        contactName?.let {
+            valueObject["name"] = JsonPrimitive(it)
+        }
+
+        val payload = mapOf(
+            "smsTarget" to InvitationPayloadValue(
+                value = kotlinx.serialization.json.JsonArray(listOf(JsonObject(valueObject))),
+                type = "phone"
+            )
+        )
+
         return executeRequest {
-            api.createSmsInvitation(
-                CreateSmsInvitationRequest(
+            api.createInvitation(
+                CreateInvitationRequest(
                     widgetConfigurationId = widgetId,
-                    source = "sms",
-                    targets = listOf(
-                        SmsInvitationTarget(
-                            targetType = "sms",
-                            targetValue = phoneNumber,
-                            targetName = contactName
-                        )
-                    ),
+                    payload = payload,
+                    source = "phone",
                     groups = groups,
-                    templateVariables = templateVariables
+                    templateVariables = templateVariables,
+                    metadata = metadata?.toJsonElementMap()
                 )
             )
         }.map { response ->

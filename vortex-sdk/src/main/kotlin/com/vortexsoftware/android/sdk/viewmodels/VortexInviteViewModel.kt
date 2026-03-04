@@ -991,6 +991,17 @@ class VortexInviteViewModel(
     }
     
     /**
+     * Find the invite-contacts (SMS) block in the configuration
+     */
+    fun findInviteContactsBlock(): ElementNode? {
+        val elements = _configuration.value?.elements ?: return null
+        return findBlockBySubtype(elements, "invite-contacts")
+            ?: findBlockBySubtype(elements, "vrtx-invite-contacts")
+            ?: findBlockBySubtype(elements, "sms-invitations")
+            ?: findBlockBySubtype(elements, "vrtx-sms-invitations")
+    }
+    
+    /**
      * Find the contacts import block in the configuration
      */
     private fun findContactsImportBlock(): ElementNode? {

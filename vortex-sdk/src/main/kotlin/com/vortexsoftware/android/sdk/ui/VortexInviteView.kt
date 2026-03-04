@@ -209,6 +209,7 @@ private fun VortexInviteContent(viewModel: VortexInviteViewModel) {
                             InviteViewState.CONTACTS_PICKER -> ContactsPickerView(viewModel = viewModel)
                             InviteViewState.GOOGLE_CONTACTS_PICKER -> GoogleContactsPickerView(viewModel = viewModel)
                             InviteViewState.QR_CODE -> QrCodeView(viewModel = viewModel)
+                            InviteViewState.INVITE_CONTACTS -> InviteContactsSecondaryView(viewModel = viewModel)
                         }
                     }
                 }
@@ -580,6 +581,9 @@ private fun RenderBlock(
                     },
                     onInvitationSent = {
                         viewModel.fireInvitationSentEvent(InvitationSentEvent.InvitationSource.INVITE_CONTACTS)
+                    },
+                    onNavigateToContacts = {
+                        viewModel.navigateTo(InviteViewState.INVITE_CONTACTS)
                     }
                 )
             }
@@ -1105,6 +1109,218 @@ private fun GoogleContactsPickerView(viewModel: VortexInviteViewModel) {
                     inviteStates = contactInviteStates,
                     onInvite = { contact -> viewModel.inviteContact(contact) },
                     modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InviteContactsSecondaryView(viewModel: VortexInviteViewModel) {
+    val config = viewModel.inviteContactsConfig ?: return
+    val block = viewModel.findInviteContactsBlock()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    
+    // Theme values from block
+    val nameColor = block?.getThemeOption("--vrtx-invite-contacts-name-color")?.let { parseHexColor(it)?.toComposeColor() } ?: VortexColors.Gray33
+    val subtitleColor = block?.getThemeOption("--vrtx-invite-contacts-subtitle-color")?.let { parseHexColor(it)?.toComposeColor() } ?: VortexColors.Gray66
+    val avatarBackground = block?.getThemeOption("--vrtx-invite-contacts-avatar-background")?.let { parseHexColor(it)?.toComposeColor() } ?: Color(0xFFE8F0FE)
+    val avatarTextColor = block?.getThemeOption("--vrtx-invite-contacts-avatar-color")?.let { parseHexColor(it)?.toComposeColor() } ?: Color(0xFF1A73E8)
+    val inviteButtonBackgroundStyle = block?.getThemeOption("--vrtx-invite-contacts-invite-button-background")?.let { parseBackgroundStyle(it) }
+    val inviteButtonTextColor = block?.getThemeOption("--vrtx-invite-contacts-invite-button-color")?.let { parseHexColor(it)?.toComposeColor() } ?: Color(0xFF1A73E8)
+    val inviteButtonBorderRadius = block?.getThemeOption("--vrtx-invite-contacts-invite-button-border-radius")?.let { parseBorderRadius(it) } ?: 8f
+    
+    // Customization text
+    val inviteButtonText = block?.getCustomButtonLabel("inviteButton") ?: "Invite"
+    val emptyStateMessage = block?.getCustomButtonLabel("emptyStateMessage") ?: "No contacts to invite"
+    val emptySearchState = block?.getCustomButtonLabel("emptySearchState") ?: "No contacts match your search"
+    val searchPlaceholderText = block?.getCustomButtonLabel("searchPlaceholder") ?: "Search contacts..."
+    
+    val contacts = remember { config.contacts.sortedBy { it.name.lowercase() } }
+    var searchQuery by remember { mutableStateOf("") }
+    var actionInProgress by remember { mutableStateOf<String?>(null) }
+    var invitedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    
+    val filteredContacts = if (searchQuery.isBlank()) {
+        contacts
+    } else {
+        val query = searchQuery.lowercase().trim()
+        contacts.filter { contact ->
+            contact.name.lowercase().contains(query) ||
+            contact.phoneNumber.contains(query)
+        }
+    }
+    
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
+    ) {
+        // Search box
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text(searchPlaceholderText, fontSize = 16.sp) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            singleLine = true,
+            shape = RoundedCornerShape(8.dp)
+        )
+        
+        // Contact rows or empty state
+        if (filteredContacts.isEmpty()) {
+            Text(
+                text = if (searchQuery.isBlank()) emptyStateMessage else emptySearchState,
+                fontSize = 14.sp,
+                color = VortexColors.Gray66,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp)
+            )
+        } else {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                filteredContacts.forEach { contact ->
+                    InviteContactsRow(
+                        contact = contact,
+                        isLoading = actionInProgress == contact.id,
+                        isInvited = invitedIds.contains(contact.id),
+                        avatarBackgroundColor = avatarBackground,
+                        avatarTextColor = avatarTextColor,
+                        nameColor = nameColor,
+                        subtitleColor = subtitleColor,
+                        inviteButtonBackgroundStyle = inviteButtonBackgroundStyle,
+                        inviteButtonTextColor = inviteButtonTextColor,
+                        inviteButtonBorderRadius = inviteButtonBorderRadius,
+                        inviteButtonText = inviteButtonText,
+                        onInvite = {
+                            scope.launch {
+                                actionInProgress = contact.id
+                                viewModel.vortexClient.createSmsInvitation(
+                                    widgetId = viewModel.widgetId,
+                                    phoneNumber = contact.phoneNumber,
+                                    contactName = contact.name,
+                                    groups = viewModel.groupList
+                                ).onSuccess { shortLink ->
+                                    invitedIds = invitedIds + contact.id
+                                    config.onInvite?.invoke(contact, shortLink)
+                                    viewModel.fireInvitationSentEvent(InvitationSentEvent.InvitationSource.INVITE_CONTACTS)
+                                    viewModel.fetchOutgoingInvitations()
+                                    shortLink?.let { link ->
+                                        val fullMessage = viewModel.shareMessage.replace("{{link}}", link)
+                                            .replace("{{vortex_share_link}}", link)
+                                        val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                            data = Uri.parse("smsto:${contact.phoneNumber}")
+                                            putExtra("sms_body", fullMessage)
+                                        }
+                                        try {
+                                            context.startActivity(intent)
+                                        } catch (_: android.content.ActivityNotFoundException) {
+                                            // No SMS app available (e.g. emulator) - invitation was
+                                            // already created server-side, so just continue silently.
+                                        }
+                                    }
+                                }.onFailure {
+                                    // API call failed - reset loading state
+                                }
+                                actionInProgress = null
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InviteContactsRow(
+    contact: InviteContactsContact,
+    isLoading: Boolean,
+    isInvited: Boolean,
+    avatarBackgroundColor: Color,
+    avatarTextColor: Color,
+    nameColor: Color,
+    subtitleColor: Color,
+    inviteButtonBackgroundStyle: BackgroundStyle?,
+    inviteButtonTextColor: Color,
+    inviteButtonBorderRadius: Float,
+    inviteButtonText: String,
+    onInvite: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Avatar
+        AvatarView(
+            name = contact.name,
+            avatarUrl = contact.avatarUrl,
+            backgroundColor = avatarBackgroundColor,
+            textColor = avatarTextColor
+        )
+        
+        Spacer(modifier = Modifier.width(12.dp))
+        
+        // Name and phone
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = contact.name,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = nameColor,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                lineHeight = 16.sp
+            )
+            Text(
+                text = contact.phoneNumber,
+                fontSize = 13.sp,
+                color = subtitleColor,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                lineHeight = 13.sp
+            )
+        }
+        
+        Spacer(modifier = Modifier.width(8.dp))
+        
+        // Invite button
+        val backgroundBrush = if (isInvited) {
+            androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color.Gray, Color.Gray))
+        } else {
+            (inviteButtonBackgroundStyle ?: BackgroundStyle.Solid(avatarBackgroundColor.value.toLong())).toBrush()
+        }
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(inviteButtonBorderRadius.dp))
+                .background(backgroundBrush)
+                .clickable(enabled = !isLoading && !isInvited, onClick = onInvite)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = inviteButtonTextColor
+                )
+            } else {
+                Text(
+                    text = if (isInvited) "✓" else inviteButtonText,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = inviteButtonTextColor
                 )
             }
         }

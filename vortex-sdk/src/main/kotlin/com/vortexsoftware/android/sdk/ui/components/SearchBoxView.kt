@@ -228,8 +228,9 @@ fun SearchBoxView(
                                     groups = groups,
                                     metadata = mergedMetadata
                                 ).onSuccess {
-                                    // Remove connected contact from results
-                                    searchResults = searchResults?.filter { it.id != contact.id }
+                                    // Remove connected contact from results; clear entirely if none remain
+                                    val remaining = searchResults?.filter { it.id != contact.id }
+                                    searchResults = remaining?.takeIf { it.isNotEmpty() }
                                     config.onInvitationCreated?.invoke(contact)
                                     onInvitationSent?.invoke()
                                 }

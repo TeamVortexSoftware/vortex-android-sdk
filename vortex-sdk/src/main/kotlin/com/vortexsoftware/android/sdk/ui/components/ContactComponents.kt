@@ -1,8 +1,9 @@
 package com.vortexsoftware.android.sdk.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -11,11 +12,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.vortexsoftware.android.sdk.models.*
 import com.vortexsoftware.android.sdk.ui.icons.VortexIcon
 import com.vortexsoftware.android.sdk.ui.icons.VortexIconName
@@ -83,14 +87,17 @@ fun ContactsImportView(
 }
 
 /**
- * Contact row view displaying a contact with an Invite button
+ * Contact row view displaying a contact with avatar (photo or initials) and an Invite button
  */
 @Composable
 fun ContactRowView(
     contact: VortexContact,
     inviteState: ContactInviteState?,
     onInvite: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    inviteLabel: String = "Invite",
+    invitedLabel: String = "✓ Invited!",
+    retryLabel: String = "Retry"
 ) {
     val isInvited = inviteState?.isInvited == true
     val isLoading = inviteState?.isLoading == true
@@ -100,9 +107,35 @@ fun ContactRowView(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Avatar (photo or initials circle)
+        if (contact.imageUrl != null) {
+            AsyncImage(
+                model = contact.imageUrl,
+                contentDescription = contact.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(Color(0xFF6291D5), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = contact.initials,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+            }
+        }
+
         // Contact info
         Column(
             modifier = Modifier.weight(1f),
@@ -110,16 +143,16 @@ fun ContactRowView(
         ) {
             Text(
                 text = contact.name,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                color = VortexColors.Gray33,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF1A1A1A),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = contact.email,
                 fontSize = 13.sp,
-                color = VortexColors.Gray66,
+                color = Color(0xFF666666),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -135,13 +168,11 @@ fun ContactRowView(
             }
         }
         
-        Spacer(modifier = Modifier.width(12.dp))
-        
         // Invite button, Invited status, or Error with Retry
         when {
             isInvited -> {
                 Text(
-                    text = "✓ Invited!",
+                    text = invitedLabel,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = VortexColors.Gray66
@@ -156,11 +187,11 @@ fun ContactRowView(
                         containerColor = VortexColors.RedLight,
                         contentColor = VortexColors.Red
                     ),
+                    border = BorderStroke(1.dp, VortexColors.Red.copy(alpha = 0.3f)),
                     shape = RoundedCornerShape(6.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     modifier = Modifier
-                        .defaultMinSize(minWidth = 80.dp)
-                        .border(1.dp, VortexColors.Red.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+                        .defaultMinSize(minWidth = 80.dp, minHeight = 1.dp)
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(
@@ -170,7 +201,7 @@ fun ContactRowView(
                         )
                     } else {
                         Text(
-                            text = "Retry",
+                            text = retryLabel,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -185,11 +216,11 @@ fun ContactRowView(
                         containerColor = VortexColors.GrayF5,
                         contentColor = VortexColors.Gray33
                     ),
+                    border = BorderStroke(1.dp, VortexColors.GrayE0),
                     shape = RoundedCornerShape(6.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     modifier = Modifier
-                        .defaultMinSize(minWidth = 80.dp)
-                        .border(1.dp, VortexColors.GrayE0, RoundedCornerShape(6.dp))
+                        .defaultMinSize(minWidth = 80.dp, minHeight = 1.dp)
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(
@@ -199,7 +230,7 @@ fun ContactRowView(
                         )
                     } else {
                         Text(
-                            text = "Invite",
+                            text = inviteLabel,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold
                         )

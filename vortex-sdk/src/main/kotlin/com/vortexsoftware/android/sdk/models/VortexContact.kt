@@ -1,5 +1,11 @@
 package com.vortexsoftware.android.sdk.models
 
+enum class ContactSource {
+    CONTACTS,
+    WORKSPACE,
+    CALENDAR
+}
+
 /**
  * Represents a contact that can be invited
  * Used for both device contacts and Google contacts
@@ -7,22 +13,35 @@ package com.vortexsoftware.android.sdk.models
 data class VortexContact(
     val id: String,
     val name: String,
-    val email: String
+    val email: String,
+    val source: ContactSource = ContactSource.CONTACTS,
+    val imageUrl: String? = null
 ) {
     companion object {
         /**
          * Create a VortexContact from name and email
          * Generates a unique ID based on the email
          */
-        fun create(name: String, email: String): VortexContact {
+        fun create(name: String, email: String, source: ContactSource = ContactSource.CONTACTS, imageUrl: String? = null): VortexContact {
             return VortexContact(
                 id = email.hashCode().toString(),
                 name = name.ifBlank { email },
-                email = email
+                email = email,
+                source = source,
+                imageUrl = imageUrl
             )
         }
     }
-    
+
+    /**
+     * Initials derived from the contact's name (up to 2 characters)
+     */
+    val initials: String
+        get() = name.split(" ")
+            .mapNotNull { it.firstOrNull()?.uppercase() }
+            .take(2)
+            .joinToString("")
+
     /**
      * Display name - returns name if available, otherwise email
      */

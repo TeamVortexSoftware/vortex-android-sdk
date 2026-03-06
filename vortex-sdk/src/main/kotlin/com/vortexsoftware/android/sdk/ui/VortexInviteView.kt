@@ -989,16 +989,42 @@ private fun GoogleContactsPickerView(viewModel: VortexInviteViewModel) {
     val isGoogleLoading by viewModel.isGoogleLoading.collectAsState()
     val googleContacts by viewModel.googleContacts.collectAsState()
     val contactInviteStates by viewModel.contactInviteStates.collectAsState()
+    val googleAuthEmail by viewModel.googleAuthenticatedEmail.collectAsState()
+    val workspaceWarning by viewModel.workspaceWarning.collectAsState()
 
-    val gso = remember(googleClientId) {
+    // Configurable strings (with nested key lookup fallback)
+    val block = viewModel.findContactsImportBlock()
+    val titleText = viewModel.customLabel(block, "google.title", "Select from Google Contacts")
+    val searchPlaceholder = viewModel.customLabel(block, "google.searchPlaceholder", "Search contacts...")
+    val loadingText = viewModel.customLabel(block, "google.loadingText", "Loading Google contacts...")
+    val emptyStateText = viewModel.customLabel(block, "google.emptyState", "No Google contacts with email addresses found")
+    val frequentlyContactedTitle = viewModel.customLabel(block, "google.frequentlyContactedTitle", "★ Frequently contacted")
+    val switchAccountLabel = viewModel.customLabel(block, "google.switchAccountLabel", "Switch Google Account")
+    val inviteLabel = viewModel.customLabel(block, "google.inviteButton", "Invite")
+    val invitedLabel = viewModel.customLabel(block, "google.invitedStatus", "✓ Invited!")
+    val retryLabel = viewModel.customLabel(block, "google.retryButton", "Retry")
+
+    // Dynamic scopes
+    val scopes = remember(viewModel.isGoogleWorkspaceEnabled, viewModel.isGoogleCalendarEnabled) {
+        buildList {
+            add(Scope("https://www.googleapis.com/auth/contacts.readonly"))
+            add(Scope("https://www.googleapis.com/auth/userinfo.email"))
+            if (viewModel.isGoogleWorkspaceEnabled) {
+                add(Scope("https://www.googleapis.com/auth/directory.readonly"))
+            }
+            if (viewModel.isGoogleCalendarEnabled) {
+                add(Scope("https://www.googleapis.com/auth/calendar.readonly"))
+            }
+        }
+    }
+
+    val gso = remember(googleClientId, scopes) {
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
             .requestProfile()
-            .requestScopes(Scope("https://www.googleapis.com/auth/contacts.readonly"))
             .apply {
-                if (googleClientId != null) {
-                    requestIdToken(googleClientId)
-                }
+                scopes.forEach { requestScopes(it) }
+                if (googleClientId != null) requestIdToken(googleClientId)
             }
             .build()
     }
@@ -1007,7 +1033,32 @@ private fun GoogleContactsPickerView(viewModel: VortexInviteViewModel) {
         GoogleSignIn.getClient(context, gso)
     }
 
+    // Build dynamic scope string for token request
+    fun buildScopeStr(): String = buildString {
+        append("oauth2:https://www.googleapis.com/auth/contacts.readonly")
+        append(" https://www.googleapis.com/auth/userinfo.email")
+        if (viewModel.isGoogleWorkspaceEnabled) append(" https://www.googleapis.com/auth/directory.readonly")
+        if (viewModel.isGoogleCalendarEnabled) append(" https://www.googleapis.com/auth/calendar.readonly")
+        append(" email profile")
+    }
+
     val coroutineScope = rememberCoroutineScope()
+
+    // Auto-restore credentials on picker open
+    LaunchedEffect(Unit) {
+        val lastAccount = GoogleSignIn.getLastSignedInAccount(context)
+        if (lastAccount != null && !isGoogleAuthenticated) {
+            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    val token = GoogleAuthUtil.getToken(context, lastAccount.email!!, buildScopeStr())
+                    viewModel.onGoogleSignInSuccess(token)
+                } catch (_: Exception) {
+                    // Token expired, need re-auth — do nothing, show sign-in button
+                }
+            }
+        }
+    }
+
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -1016,11 +1067,9 @@ private fun GoogleContactsPickerView(viewModel: VortexInviteViewModel) {
             val account = task.getResult(ApiException::class.java)
             val email = account.email
             if (email != null) {
-                // We must get the access token on a background thread
                 coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                     try {
-                        val scope = "oauth2:https://www.googleapis.com/auth/contacts.readonly email profile"
-                        val token = GoogleAuthUtil.getToken(context, email, scope)
+                        val token = GoogleAuthUtil.getToken(context, email, buildScopeStr())
                         viewModel.onGoogleSignInSuccess(token)
                     } catch (e: Exception) {
                         android.util.Log.e("Vortex", "Failed to get access token", e)
@@ -1047,7 +1096,7 @@ private fun GoogleContactsPickerView(viewModel: VortexInviteViewModel) {
             )
             Spacer(modifier = Modifier.height(24.dp))
             Text(
-                text = "Connect Google Contacts",
+                text = titleText,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = VortexColors.Gray33
@@ -1074,45 +1123,185 @@ private fun GoogleContactsPickerView(viewModel: VortexInviteViewModel) {
             }
         }
     } else {
+        var searchQuery by remember { mutableStateOf("") }
+
+        // Use ViewModel's computed filtered/grouped properties
+        val frequentlyContacted = viewModel.filteredFrequentlyContacted
+        val grouped = viewModel.groupedMainContacts
+        val allFiltered = frequentlyContacted + grouped.flatMap { it.second }
+
         Column(modifier = Modifier.fillMaxSize()) {
+            // Switch account header (above search, matching RN/iOS)
+            googleAuthEmail?.let { email ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = email,
+                        fontSize = 13.sp,
+                        color = VortexColors.Gray66,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(
+                        onClick = { viewModel.switchGoogleAccount(context) },
+                        modifier = Modifier.heightIn(min = 48.dp).padding(start = 12.dp)
+                    ) {
+                        Text(
+                            text = switchAccountLabel,
+                            fontSize = 13.sp,
+                            color = Color(0xFF1A73E8)
+                        )
+                    }
+                }
+            }
+
             // Search Bar
-            Box(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .fillMaxWidth()
-                    .background(VortexColors.GrayF5, RoundedCornerShape(10.dp))
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.TextField(
+                value = searchQuery,
+                onValueChange = {
+                    searchQuery = it
+                    viewModel.updateContactSearchQuery(it)
+                },
+                placeholder = { Text(searchPlaceholder, color = VortexColors.Gray66) },
+                singleLine = true,
+                leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = "Search",
                         tint = VortexColors.Gray66,
                         modifier = Modifier.size(20.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Search Google contacts",
-                        color = VortexColors.Gray66,
-                        fontSize = 14.sp
-                    )
-                }
-            }
+                },
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = VortexColors.GrayF5,
+                    unfocusedContainerColor = VortexColors.GrayF5,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent
+                ),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .fillMaxWidth()
+            )
 
             if (isGoogleLoading) {
                 Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = VortexColors.Gray33)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(color = VortexColors.Gray33)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = loadingText, fontSize = 13.sp, color = VortexColors.Gray66)
+                    }
+                }
+            } else if (allFiltered.isEmpty()) {
+                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Text(text = emptyStateText, fontSize = 14.sp, color = VortexColors.Gray66)
                 }
             } else {
-                ContactListView(
-                    contacts = googleContacts,
-                    inviteStates = contactInviteStates,
-                    onInvite = { contact -> viewModel.inviteContact(contact) },
-                    modifier = Modifier.weight(1f)
-                )
+                // Sectioned list with sections
+                androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.weight(1f)) {
+                    // Workspace warning
+                    workspaceWarning?.let { warning ->
+                        item {
+                            Text(
+                                text = warning,
+                                color = Color(0xFFB8860B),
+                                fontSize = 12.sp,
+                                modifier = Modifier
+                                    .padding(16.dp)
+                                    .background(Color(0xFFFFF8E1), RoundedCornerShape(8.dp))
+                                    .padding(12.dp)
+                            )
+                        }
+                    }
+
+                    // Frequently contacted section
+                    if (frequentlyContacted.isNotEmpty()) {
+                        item { GoogleContactsSectionDivider(text = frequentlyContactedTitle) }
+                        items(frequentlyContacted.size) { index ->
+                            val contact = frequentlyContacted[index]
+                            GoogleContactRow(
+                                contact = contact,
+                                inviteState = contactInviteStates[contact.id],
+                                onInvite = { viewModel.inviteContact(contact) },
+                                inviteLabel = inviteLabel,
+                                invitedLabel = invitedLabel,
+                                retryLabel = retryLabel
+                            )
+                        }
+                    }
+
+                    // Alphabetic sections for main contacts
+                    grouped.forEach { (letter, contacts) ->
+                        item { GoogleContactsSectionDivider(text = letter) }
+                        items(contacts.size) { index ->
+                            val contact = contacts[index]
+                            GoogleContactRow(
+                                contact = contact,
+                                inviteState = contactInviteStates[contact.id],
+                                onInvite = { viewModel.inviteContact(contact) },
+                                inviteLabel = inviteLabel,
+                                invitedLabel = invitedLabel,
+                                retryLabel = retryLabel
+                            )
+                        }
+                    }
+                }
             }
         }
     }
+}
+
+/**
+ * Section divider matching RN/iOS SDK style (bottom border, not pinned)
+ */
+@Composable
+private fun GoogleContactsSectionDivider(text: String) {
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .padding(top = 4.dp)
+        ) {
+            Text(
+                text = text,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                color = Color(0xFF888888)
+            )
+        }
+        androidx.compose.material3.HorizontalDivider(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            thickness = 0.5.dp,
+            color = Color(0xFFE0E0E0)
+        )
+    }
+}
+
+/**
+ * Reusable Google contact row with avatar (photo or initials)
+ */
+@Composable
+private fun GoogleContactRow(
+    contact: VortexContact,
+    inviteState: ContactInviteState?,
+    onInvite: () -> Unit,
+    inviteLabel: String = "Invite",
+    invitedLabel: String = "✓ Invited!",
+    retryLabel: String = "Retry"
+) {
+    ContactRowView(
+        contact = contact,
+        inviteState = inviteState,
+        onInvite = onInvite,
+        inviteLabel = inviteLabel,
+        invitedLabel = invitedLabel,
+        retryLabel = retryLabel
+    )
 }
 
 @Composable

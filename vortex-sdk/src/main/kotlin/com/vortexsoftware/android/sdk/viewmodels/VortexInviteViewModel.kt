@@ -9,6 +9,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.auth.GoogleAuthUtil
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.vortexsoftware.android.sdk.analytics.*
 import com.vortexsoftware.android.sdk.api.VortexClient
 import com.vortexsoftware.android.sdk.api.dto.GroupDTO
@@ -16,6 +18,7 @@ import com.vortexsoftware.android.sdk.api.dto.OutgoingInvitation
 import com.vortexsoftware.android.sdk.cache.VortexConfigurationCache
 import com.vortexsoftware.android.sdk.models.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -248,6 +251,12 @@ class VortexInviteViewModel(
 
     private val _isGoogleAuthenticated = MutableStateFlow(false)
     val isGoogleAuthenticated: StateFlow<Boolean> = _isGoogleAuthenticated.asStateFlow()
+
+    private val _googleAuthenticatedEmail = MutableStateFlow<String?>(null)
+    val googleAuthenticatedEmail: StateFlow<String?> = _googleAuthenticatedEmail.asStateFlow()
+
+    private val _workspaceWarning = MutableStateFlow<String?>(null)
+    val workspaceWarning: StateFlow<String?> = _workspaceWarning.asStateFlow()
     
     // Feature flags derived from configuration
     val shareOptions: List<String>
@@ -333,6 +342,28 @@ class VortexInviteViewModel(
             // Fallback to searching the block tree
             return findContactsImportBlock()?.children
                 ?.any { it.getString("importType") == "google" } == true
+        }
+
+    val isGoogleWorkspaceEnabled: Boolean
+        get() {
+            val config = _configuration.value ?: return false
+            val components = config.props["vortex.components"]?.value
+            if (components is JsonArray) {
+                val componentList = components.mapNotNull { (it as? JsonPrimitive)?.content }
+                return componentList.contains("vortex.components.importcontacts.providers.google.workspace.directory")
+            }
+            return false
+        }
+
+    val isGoogleCalendarEnabled: Boolean
+        get() {
+            val config = _configuration.value ?: return false
+            val components = config.props["vortex.components"]?.value
+            if (components is JsonArray) {
+                val componentList = components.mapNotNull { (it as? JsonPrimitive)?.content }
+                return componentList.contains("vortex.components.importcontacts.providers.google.calendar.guests")
+            }
+            return false
         }
     
     /**
@@ -619,61 +650,284 @@ class VortexInviteViewModel(
     /**
      * Handle successful Google Sign-In
      */
-    fun onGoogleSignInSuccess(accountEmail: String) {
+    fun onGoogleSignInSuccess(accessToken: String) {
         _isGoogleAuthenticated.value = true
-        fetchGoogleContacts(accountEmail)
+        fetchGoogleContacts(accessToken)
     }
 
     /**
-     * Fetch contacts from Google People API
+     * Switch Google account - signs out and re-triggers sign-in flow
+     */
+    fun switchGoogleAccount(context: Context) {
+        viewModelScope.launch {
+            try {
+                GoogleSignIn.getClient(context, GoogleSignInOptions.DEFAULT_SIGN_IN).signOut()
+            } catch (_: Exception) {}
+            _isGoogleAuthenticated.value = false
+            _googleContacts.value = emptyList()
+            _googleAuthenticatedEmail.value = null
+            _workspaceWarning.value = null
+            // Re-trigger sign-in flow (UI will show sign-in button again)
+        }
+    }
+
+    /**
+     * Fetch contacts from all enabled Google sources in parallel
      */
     private fun fetchGoogleContacts(accessToken: String) {
         viewModelScope.launch {
             _isGoogleLoading.value = true
             _error.value = null
-            
+            _workspaceWarning.value = null
+
             try {
-                val client = OkHttpClient()
-                val request = Request.Builder()
-                    .url("https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses&pageSize=1000")
-                    .addHeader("Authorization", "Bearer $accessToken")
-                    .build()
-                
-                val response = withContext(Dispatchers.IO) {
-                    client.newCall(request).execute()
+                // 1. Fetch user email for self-exclusion
+                val userEmail = fetchUserEmail(accessToken)
+                _googleAuthenticatedEmail.value = userEmail
+
+                // 2. Fetch all enabled sources in parallel
+                val personalDeferred = async { fetchPersonalContacts(accessToken) }
+                val workspaceDeferred = if (isGoogleWorkspaceEnabled) async { fetchWorkspaceDirectory(accessToken) } else null
+                val calendarDeferred = if (isGoogleCalendarEnabled) async { fetchCalendarGuests(accessToken) } else null
+
+                val personal = personalDeferred.await()
+                val workspace = workspaceDeferred?.await() ?: emptyList()
+                val calendar = calendarDeferred?.await() ?: emptyList()
+
+                // 3. Handle workspace warning
+                if (isGoogleWorkspaceEnabled && workspace.isEmpty()) {
+                    _workspaceWarning.value = "Results below do not include your Google Workspace directory. Check with your admin to make sure Contact Sharing is enabled."
                 }
 
-                if (!response.isSuccessful) {
-                    throw Exception("Google API error: ${response.code}")
-                }
-
-                val body = response.body?.string() ?: throw Exception("Empty response body")
-                val json = Json { ignoreUnknownKeys = true }
-                val data = json.parseToJsonElement(body).jsonObject
-                
-                val contacts = mutableListOf<VortexContact>()
-                val connections = data["connections"]?.jsonArray ?: emptyList<JsonElement>()
-                
-                for (person in connections) {
-                    val personObj = person.jsonObject
-                    val emailAddresses = personObj["emailAddresses"]?.jsonArray ?: continue
-                    
-                    for (emailObj in emailAddresses) {
-                        val email = emailObj.jsonObject["value"]?.jsonPrimitive?.content ?: continue
-                        val name = personObj["names"]?.jsonArray?.getOrNull(0)?.jsonObject?.get("displayName")?.jsonPrimitive?.content ?: email
-                        
-                        contacts.add(VortexContact.create(name, email))
-                    }
-                }
-                
-                _googleContacts.value = contacts.distinctBy { it.email.lowercase() }
+                // 4. Merge, dedup, exclude self
+                val allContacts = mergeAndDedup(personal, workspace, calendar, userEmail)
+                _googleContacts.value = allContacts
             } catch (e: Exception) {
                 _error.value = "Failed to fetch Google contacts: ${e.message}"
-                android.util.Log.e("Vortex", "Error fetching contacts", e)
+                if (enableLogging) android.util.Log.e("Vortex", "Error fetching contacts", e)
             } finally {
                 _isGoogleLoading.value = false
             }
         }
+    }
+
+    private suspend fun fetchUserEmail(accessToken: String): String? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val client = OkHttpClient()
+                val request = Request.Builder()
+                    .url("https://www.googleapis.com/oauth2/v3/userinfo")
+                    .addHeader("Authorization", "Bearer $accessToken")
+                    .build()
+                val response = client.newCall(request).execute()
+                if (response.isSuccessful) {
+                    val body = response.body?.string() ?: return@withContext null
+                    val json = Json { ignoreUnknownKeys = true }
+                    val data = json.parseToJsonElement(body).jsonObject
+                    data["email"]?.jsonPrimitive?.content
+                } else null
+            } catch (_: Exception) { null }
+        }
+    }
+
+    private suspend fun fetchPersonalContacts(accessToken: String): List<VortexContact> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val client = OkHttpClient()
+                val request = Request.Builder()
+                    .url("https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses,photos&pageSize=1000")
+                    .addHeader("Authorization", "Bearer $accessToken")
+                    .build()
+                val response = client.newCall(request).execute()
+                if (!response.isSuccessful) return@withContext emptyList()
+
+                val body = response.body?.string() ?: return@withContext emptyList()
+                val json = Json { ignoreUnknownKeys = true }
+                val data = json.parseToJsonElement(body).jsonObject
+                val contacts = mutableListOf<VortexContact>()
+                val connections = data["connections"]?.jsonArray ?: return@withContext emptyList()
+
+                for (person in connections) {
+                    val personObj = person.jsonObject
+                    val emailAddresses = personObj["emailAddresses"]?.jsonArray ?: continue
+                    val resourceName = personObj["resourceName"]?.jsonPrimitive?.contentOrNull ?: java.util.UUID.randomUUID().toString()
+                    val displayName = personObj["names"]?.jsonArray?.getOrNull(0)?.jsonObject?.get("displayName")?.jsonPrimitive?.contentOrNull
+                    // Extract photo URL (skip default/placeholder photos)
+                    val photos = personObj["photos"]?.jsonArray
+                    val photoUrl = photos?.getOrNull(0)?.jsonObject?.let { photo ->
+                        val url = photo["url"]?.jsonPrimitive?.contentOrNull
+                        val isDefault = photo["default"]?.jsonPrimitive?.booleanOrNull ?: false
+                        if (url != null && !isDefault) url else null
+                    }
+                    for (emailObj in emailAddresses) {
+                        val email = emailObj.jsonObject["value"]?.jsonPrimitive?.content ?: continue
+                        val key = "$resourceName-$email"
+                        val name = displayName ?: inferNameFromEmail(email)
+                        contacts.add(VortexContact(id = key, name = name, email = email, source = ContactSource.CONTACTS, imageUrl = photoUrl))
+                    }
+                }
+                contacts.distinctBy { it.email.lowercase() }
+            } catch (_: Exception) { emptyList() }
+        }
+    }
+
+    /**
+     * Fetch workspace directory contacts.
+     * Tries DOMAIN_PROFILE → DOMAIN_CONTACT → searchDirectoryPeople (matching RN/iOS SDK)
+     */
+    private suspend fun fetchWorkspaceDirectory(accessToken: String): List<VortexContact> {
+        return withContext(Dispatchers.IO) {
+            val sources = listOf(
+                "https://people.googleapis.com/v1/people:listDirectoryPeople?sources=DIRECTORY_SOURCE_TYPE_DOMAIN_PROFILE&readMask=names,emailAddresses,photos&pageSize=1000",
+                "https://people.googleapis.com/v1/people:listDirectoryPeople?sources=DIRECTORY_SOURCE_TYPE_DOMAIN_CONTACT&readMask=names,emailAddresses,photos&pageSize=1000",
+                "https://people.googleapis.com/v1/people:searchDirectoryPeople?sources=DIRECTORY_SOURCE_TYPE_DOMAIN_PROFILE&readMask=names,emailAddresses,photos&pageSize=500&query="
+            )
+            for (urlString in sources) {
+                try {
+                    val httpClient = OkHttpClient()
+                    val request = Request.Builder()
+                        .url(urlString)
+                        .addHeader("Authorization", "Bearer $accessToken")
+                        .build()
+                    val response = httpClient.newCall(request).execute()
+                    if (!response.isSuccessful) continue
+
+                    val body = response.body?.string() ?: continue
+                    val json = Json { ignoreUnknownKeys = true }
+                    val data = json.parseToJsonElement(body).jsonObject
+                    val people = data["people"]?.jsonArray ?: continue
+                    if (people.isEmpty()) continue
+
+                    val contacts = mutableListOf<VortexContact>()
+                    for (person in people) {
+                        val personObj = person.jsonObject
+                        val emailAddresses = personObj["emailAddresses"]?.jsonArray ?: continue
+                        val resourceName = personObj["resourceName"]?.jsonPrimitive?.contentOrNull ?: java.util.UUID.randomUUID().toString()
+                        val displayName = personObj["names"]?.jsonArray?.getOrNull(0)?.jsonObject?.get("displayName")?.jsonPrimitive?.contentOrNull
+                        // Extract photo URL (skip default/placeholder photos)
+                        val photos = personObj["photos"]?.jsonArray
+                        val imageUrl = photos?.getOrNull(0)?.jsonObject?.let { photo ->
+                            val url = photo["url"]?.jsonPrimitive?.contentOrNull
+                            val isDefault = photo["default"]?.jsonPrimitive?.booleanOrNull ?: false
+                            if (url != null && !isDefault) url else null
+                        }
+                        for (emailObj in emailAddresses) {
+                            val email = emailObj.jsonObject["value"]?.jsonPrimitive?.content ?: continue
+                            val key = "ws-$resourceName-$email"
+                            val name = displayName ?: inferNameFromEmail(email)
+                            contacts.add(VortexContact(id = key, name = name, email = email, source = ContactSource.WORKSPACE, imageUrl = imageUrl))
+                        }
+                    }
+                    return@withContext contacts
+                } catch (_: Exception) { continue }
+            }
+            emptyList()
+        }
+    }
+
+    private suspend fun fetchCalendarGuests(accessToken: String): List<VortexContact> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val client = OkHttpClient()
+                val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply {
+                    timeZone = java.util.TimeZone.getTimeZone("UTC")
+                }
+                val now = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))
+                val timeMax = dateFormat.format(now.time)
+                now.add(java.util.Calendar.DAY_OF_YEAR, -30)
+                val timeMin = dateFormat.format(now.time)
+                val url = "https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=$timeMin&timeMax=$timeMax&maxResults=500&singleEvents=true&orderBy=startTime"
+
+                val request = Request.Builder()
+                    .url(url)
+                    .addHeader("Authorization", "Bearer $accessToken")
+                    .build()
+                val response = client.newCall(request).execute()
+                if (!response.isSuccessful) return@withContext emptyList()
+
+                val body = response.body?.string() ?: return@withContext emptyList()
+                val json = Json { ignoreUnknownKeys = true }
+                val data = json.parseToJsonElement(body).jsonObject
+                val items = data["items"]?.jsonArray ?: return@withContext emptyList()
+
+                // Count frequency per attendee email
+                val userEmailLower = _googleAuthenticatedEmail.value?.lowercase() ?: ""
+                val attendeeCounts = mutableMapOf<String, Pair<String, Int>>() // email -> (name, count)
+                for (event in items) {
+                    val attendees = event.jsonObject["attendees"]?.jsonArray ?: continue
+                    for (attendee in attendees) {
+                        val obj = attendee.jsonObject
+                        val email = obj["email"]?.jsonPrimitive?.content ?: continue
+                        val emailLower = email.lowercase().trim()
+                        if (emailLower.isBlank()) continue
+                        // Skip self, resource calendars, and group calendars (matching RN/iOS)
+                        if (emailLower == userEmailLower) continue
+                        if (emailLower.contains("resource.calendar.google.com")) continue
+                        if (emailLower.startsWith("group.calendar.google.com")) continue
+                        val displayName = obj["displayName"]?.jsonPrimitive?.contentOrNull
+                        val name = if (!displayName.isNullOrBlank() && displayName.lowercase() != emailLower) {
+                            displayName
+                        } else {
+                            inferNameFromEmail(email)
+                        }
+                        val existing = attendeeCounts[emailLower]
+                        attendeeCounts[emailLower] = Pair(existing?.first ?: name, (existing?.second ?: 0) + 1)
+                    }
+                }
+
+                val attendeesWithCount = attendeeCounts.map { (email, pair) ->
+                    Pair(VortexContact(id = "cal-$email", name = pair.first, email = email, source = ContactSource.CALENDAR), pair.second)
+                }
+
+                selectFrequentlyContacted(attendeesWithCount)
+            } catch (_: Exception) { emptyList() }
+        }
+    }
+
+    private fun selectFrequentlyContacted(
+        attendees: List<Pair<VortexContact, Int>>
+    ): List<VortexContact> {
+        if (attendees.isEmpty()) return emptyList()
+
+        // 1. Require minimum 2 shared events
+        val qualified = attendees.filter { it.second >= 2 }
+        if (qualified.isEmpty()) return emptyList()
+
+        // 2. Sort by frequency descending
+        val sorted = qualified.sortedByDescending { it.second }
+
+        // 3. Top 20%, capped at 10, floor of 3
+        val twentyPercent = kotlin.math.ceil(sorted.size * 0.2).toInt()
+        val limit = minOf(maxOf(twentyPercent, 3), 10)
+
+        // 4. Take top N, then sort alphabetically
+        return sorted.take(limit)
+            .map { it.first }
+            .sortedBy { it.name.lowercase() }
+    }
+
+    private fun mergeAndDedup(
+        personal: List<VortexContact>,
+        workspace: List<VortexContact>,
+        calendar: List<VortexContact>,
+        userEmail: String?
+    ): List<VortexContact> {
+        val calendarEmails = calendar.map { it.email.lowercase() }.toSet()
+
+        val mainMap = mutableMapOf<String, VortexContact>()
+        (personal + workspace).forEach { contact ->
+            val key = contact.email.lowercase()
+            if (key != userEmail?.lowercase() && key !in calendarEmails) {
+                mainMap.putIfAbsent(key, contact)
+            }
+        }
+        val mainContacts = mainMap.values.sortedBy { it.name.lowercase() }
+
+        val calendarContacts = calendar.filter {
+            it.email.lowercase() != userEmail?.lowercase()
+        }
+
+        return calendarContacts + mainContacts
     }
     
     /**
@@ -1002,9 +1256,88 @@ class VortexInviteViewModel(
     }
     
     /**
+     * Read a customization label from any element block, with nested key lookup fallback.
+     * Tries flat dotted key first (e.g. "google.frequentlyContactedTitle"),
+     * then nested path (e.g. google -> frequentlyContactedTitle -> textContent).
+     */
+    fun customLabel(block: ElementNode?, key: String, default: String): String {
+        // Try flat dotted key first
+        block?.getCustomButtonLabel(key)?.let { return it }
+        // Try nested path lookup through raw JSON
+        val keyParts = key.split(".")
+        if (keyParts.size >= 2) {
+            try {
+                val customizations = block?.settings?.get("customizations") as? JsonObject ?: return default
+                var current: JsonElement? = customizations
+                for (part in keyParts) {
+                    current = (current as? JsonObject)?.get(part)
+                    if (current == null) break
+                }
+                val textContent = (current as? JsonObject)?.get("textContent")?.let { it as? JsonPrimitive }?.contentOrNull
+                if (textContent != null) return textContent
+            } catch (_: Exception) {}
+        }
+        return default
+    }
+
+    /**
+     * Infer a display name from an email address (e.g. "john.doe@example.com" -> "John Doe")
+     */
+    private fun inferNameFromEmail(email: String): String {
+        val localPart = email.split("@").firstOrNull() ?: return email
+        val name = localPart
+            .replace(".", " ")
+            .replace("_", " ")
+            .replace("-", " ")
+            .split(" ")
+            .filter { it.isNotBlank() }
+            .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+        return name.ifBlank { email }
+    }
+
+    /**
+     * Filtered frequently contacted (calendar) Google contacts based on search query
+     */
+    val filteredFrequentlyContacted: List<VortexContact>
+        get() {
+            val calendar = _googleContacts.value.filter { it.source == ContactSource.CALENDAR }
+            val query = _contactSearchQuery.value
+            if (query.isBlank()) return calendar
+            val q = query.lowercase()
+            return calendar.filter { it.name.lowercase().contains(q) || it.email.lowercase().contains(q) }
+        }
+
+    /**
+     * Filtered main (non-calendar) Google contacts based on search query
+     */
+    val filteredMainContacts: List<VortexContact>
+        get() {
+            val main = _googleContacts.value.filter { it.source != ContactSource.CALENDAR }
+            val query = _contactSearchQuery.value
+            if (query.isBlank()) return main
+            val q = query.lowercase()
+            return main.filter { it.name.lowercase().contains(q) || it.email.lowercase().contains(q) }
+        }
+
+    /**
+     * Grouped main contacts by first letter for alphabetic section headers
+     */
+    val groupedMainContacts: List<Pair<String, List<VortexContact>>>
+        get() {
+            val contacts = filteredMainContacts
+            val groups = mutableMapOf<String, MutableList<VortexContact>>()
+            for (contact in contacts) {
+                val firstChar = contact.name.firstOrNull()?.uppercase() ?: "#"
+                val letter = if (firstChar.first().isLetter()) firstChar else "#"
+                groups.getOrPut(letter) { mutableListOf() }.add(contact)
+            }
+            return groups.toSortedMap().map { (k, v) -> Pair(k, v) }
+        }
+
+    /**
      * Find the contacts import block in the configuration
      */
-    private fun findContactsImportBlock(): ElementNode? {
+    internal fun findContactsImportBlock(): ElementNode? {
         val elements = _configuration.value?.elements ?: return null
         return findBlockBySubtype(elements, "contacts-import")
             ?: findBlockBySubtype(elements, "vrtx-contacts-import")

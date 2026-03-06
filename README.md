@@ -33,7 +33,7 @@ Add the dependency to your app's `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("com.vortexsoftware.android:vortex-sdk:1.0.1")
+    implementation("com.vortexsoftware.android:vortex-sdk:1.0.2")
 }
 ```
 
@@ -41,7 +41,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'com.vortexsoftware.android:vortex-sdk:1.0.1'
+    implementation 'com.vortexsoftware.android:vortex-sdk:1.0.2'
 }
 ```
 

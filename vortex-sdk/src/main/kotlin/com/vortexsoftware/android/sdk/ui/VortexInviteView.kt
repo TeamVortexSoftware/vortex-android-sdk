@@ -1410,7 +1410,8 @@ private fun InviteContactsSecondaryView(viewModel: VortexInviteViewModel) {
                                     config.onInvite?.invoke(contact, shortLink)
                                     viewModel.fireInvitationSentEvent(InvitationSentEvent.InvitationSource.INVITE_CONTACTS)
                                     viewModel.fetchOutgoingInvitations()
-                                    shortLink?.let { link ->
+                                    shortLink?.let { rawLink ->
+                                        val link = VortexInviteViewModel.injectShareSource(rawLink, "sms")
                                         val fullMessage = viewModel.shareMessage.replace("{{link}}", link)
                                             .replace("{{vortex_share_link}}", link)
                                         val intent = Intent(Intent.ACTION_SENDTO).apply {
@@ -1528,7 +1529,7 @@ private fun InviteContactsRow(
 
 @Composable
 private fun QrCodeView(viewModel: VortexInviteViewModel) {
-    val shareableLink by viewModel.shareableLink.collectAsState()
+    val qrCodeLink by viewModel.qrCodeLink.collectAsState()
     
     Column(
         modifier = Modifier
@@ -1537,7 +1538,7 @@ private fun QrCodeView(viewModel: VortexInviteViewModel) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        shareableLink?.let { link ->
+        qrCodeLink?.let { link ->
             val qrBitmap = remember(link) { generateQrCode(link) }
             qrBitmap?.let { bitmap ->
                 androidx.compose.foundation.Image(

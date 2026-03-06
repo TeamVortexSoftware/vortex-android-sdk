@@ -71,7 +71,7 @@ fun InviteContactsView(
         modifier = modifier
             .fillMaxWidth()
             .clickable { onNavigateToContacts() }
-            .padding(horizontal = 16.dp, vertical = 16.dp),
+            .padding(bottom = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(

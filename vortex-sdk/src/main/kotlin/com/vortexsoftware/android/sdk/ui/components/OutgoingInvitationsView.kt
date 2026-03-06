@@ -124,7 +124,6 @@ fun OutgoingInvitationsView(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
     ) {
         // Title - always visible (even during shimmer)
         if (!title.isNullOrBlank()) {

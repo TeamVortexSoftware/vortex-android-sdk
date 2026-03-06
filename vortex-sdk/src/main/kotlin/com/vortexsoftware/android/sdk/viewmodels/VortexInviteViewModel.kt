@@ -154,6 +154,9 @@ class VortexInviteViewModel(
     // Share states
     private val _shareableLink = MutableStateFlow<String?>(null)
     val shareableLink: StateFlow<String?> = _shareableLink.asStateFlow()
+
+    private val _qrCodeLink = MutableStateFlow<String?>(null)
+    val qrCodeLink: StateFlow<String?> = _qrCodeLink.asStateFlow()
     
     private val _loadingCopy = MutableStateFlow(false)
     val loadingCopy: StateFlow<Boolean> = _loadingCopy.asStateFlow()
@@ -967,6 +970,46 @@ class VortexInviteViewModel(
         }
     }
     
+    // MARK: - Share source tracking
+
+    companion object {
+        private val shareSourceCodes = mapOf(
+            "sms" to "m",
+            "email" to "e",
+            "native" to "n",
+            "qrcode" to "q",
+            "whatsapp" to "w",
+            "twitter" to "t",
+            "facebook" to "f",
+            "instagram" to "i",
+            "slack" to "s",
+            "linkedin" to "l",
+            "telegram" to "g",
+            "discord" to "d",
+            "line" to "y",
+            "msteams" to "p"
+        )
+
+        /**
+         * Inject a share source code into a shareable link URL.
+         * Transforms /i/shortcode → /i/{code}/shortcode so analytics can track
+         * which platform drove the click.
+         */
+        fun injectShareSource(baseUrl: String, source: String): String {
+            val code = shareSourceCodes[source] ?: return baseUrl
+            val uri = Uri.parse(baseUrl) ?: return baseUrl
+            val pathSegments = uri.pathSegments.toMutableList()
+            val inviteIndex = pathSegments.indexOf("i")
+            if (inviteIndex >= 0 && inviteIndex < pathSegments.size - 1) {
+                pathSegments.add(inviteIndex + 1, code)
+                val newPath = "/" + pathSegments.joinToString("/")
+                val newUri = uri.buildUpon().path(newPath).build()
+                return newUri.toString()
+            }
+            return baseUrl
+        }
+    }
+
     // MARK: - Share handling
     
     /**
@@ -998,7 +1041,7 @@ class VortexInviteViewModel(
             val link = getShareableLink()
             if (link != null) {
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = ClipData.newPlainText("Invitation Link", link)
+                val clip = ClipData.newPlainText("Invitation Link", injectShareSource(link, "native"))
                 clipboard.setPrimaryClip(clip)
                 _copySuccess.value = true
                 fireInvitationSentEvent(InvitationSentEvent.InvitationSource.SHARE_LINK, link)
@@ -1025,7 +1068,8 @@ class VortexInviteViewModel(
             
             val link = getShareableLink()
             if (link != null) {
-                val fullMessage = buildShareText(link)
+                val sourcedLink = injectShareSource(link, "native")
+                val fullMessage = buildShareText(sourcedLink)
                 val sendIntent = Intent().apply {
                     action = Intent.ACTION_SEND
                     putExtra(Intent.EXTRA_SUBJECT, shareTitle)
@@ -1055,7 +1099,8 @@ class VortexInviteViewModel(
     fun shareViaSms(context: Context) {
         trackShareLinkClick("shareViaSMS")
         viewModelScope.launch {
-            getShareableLink()?.let { link ->
+            getShareableLink()?.let { baseLink ->
+                val link = injectShareSource(baseLink, "sms")
                 val fullMessage = buildShareText(link)
                 val intent = Intent(Intent.ACTION_SENDTO).apply {
                     data = Uri.parse("smsto:")
@@ -1074,7 +1119,8 @@ class VortexInviteViewModel(
     fun showQrCode() {
         trackShareLinkClick("shareViaQrCode")
         viewModelScope.launch {
-            getShareableLink()?.let {
+            getShareableLink()?.let { link ->
+                _qrCodeLink.value = injectShareSource(link, "qrcode")
                 _currentView.value = InviteViewState.QR_CODE
             }
         }
@@ -1086,7 +1132,8 @@ class VortexInviteViewModel(
     fun shareViaWhatsApp(context: Context) {
         trackShareLinkClick("shareViaWhatsApp")
         viewModelScope.launch {
-            getShareableLink()?.let { link ->
+            getShareableLink()?.let { baseLink ->
+                val link = injectShareSource(baseLink, "whatsapp")
                 val fullMessage = buildShareText(link)
                 val intent = Intent(Intent.ACTION_VIEW).apply {
                     data = Uri.parse("https://wa.me/?text=${Uri.encode(fullMessage)}")
@@ -1103,7 +1150,8 @@ class VortexInviteViewModel(
     fun shareViaTelegram(context: Context) {
         trackShareLinkClick("shareViaTelegram")
         viewModelScope.launch {
-            getShareableLink()?.let { link ->
+            getShareableLink()?.let { baseLink ->
+                val link = injectShareSource(baseLink, "telegram")
                 val fullMessage = buildShareText(link)
                 val intent = Intent(Intent.ACTION_VIEW).apply {
                     data = Uri.parse("https://t.me/share/url?url=${Uri.encode(link)}&text=${Uri.encode(fullMessage)}")
@@ -1120,7 +1168,8 @@ class VortexInviteViewModel(
     fun shareViaLine(context: Context) {
         trackShareLinkClick("shareViaLine")
         viewModelScope.launch {
-            getShareableLink()?.let { link ->
+            getShareableLink()?.let { baseLink ->
+                val link = injectShareSource(baseLink, "line")
                 val fullMessage = buildShareText(link)
                 val intent = Intent(Intent.ACTION_VIEW).apply {
                     data = Uri.parse("https://line.me/R/msg/text/?${Uri.encode(fullMessage)}")
@@ -1137,7 +1186,8 @@ class VortexInviteViewModel(
     fun shareViaEmail(context: Context) {
         trackShareLinkClick("shareViaEmail")
         viewModelScope.launch {
-            getShareableLink()?.let { link ->
+            getShareableLink()?.let { baseLink ->
+                val link = injectShareSource(baseLink, "email")
                 val fullMessage = buildShareText(link)
                 val intent = Intent(Intent.ACTION_SENDTO).apply {
                     data = Uri.parse("mailto:")
@@ -1156,7 +1206,8 @@ class VortexInviteViewModel(
     fun shareViaTwitter(context: Context) {
         trackShareLinkClick("shareViaTwitter")
         viewModelScope.launch {
-            getShareableLink()?.let { link ->
+            getShareableLink()?.let { baseLink ->
+                val link = injectShareSource(baseLink, "twitter")
                 val fullMessage = buildShareText(link)
                 val intent = Intent(Intent.ACTION_VIEW).apply {
                     data = Uri.parse("https://twitter.com/intent/tweet?text=${Uri.encode(fullMessage)}&url=${Uri.encode(link)}")
@@ -1173,7 +1224,8 @@ class VortexInviteViewModel(
     fun shareViaInstagram(context: Context) {
         trackShareLinkClick("shareViaInstagram")
         viewModelScope.launch {
-            getShareableLink()?.let { link ->
+            getShareableLink()?.let { baseLink ->
+                val link = injectShareSource(baseLink, "instagram")
                 // Instagram doesn't have a direct share URL, copy to clipboard and open app
                 val fullMessage = buildShareText(link)
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -1193,7 +1245,8 @@ class VortexInviteViewModel(
     fun shareViaFacebookMessenger(context: Context) {
         trackShareLinkClick("shareViaFacebookMessenger")
         viewModelScope.launch {
-            getShareableLink()?.let { link ->
+            getShareableLink()?.let { baseLink ->
+                val link = injectShareSource(baseLink, "facebook")
                 // Messenger share link works best with just the URL
                 val intent = Intent(Intent.ACTION_VIEW).apply {
                     data = Uri.parse("fb-messenger://share/?link=${Uri.encode(link)}")
@@ -1219,7 +1272,8 @@ class VortexInviteViewModel(
     fun shareViaDiscord(context: Context) {
         trackShareLinkClick("shareViaDiscord")
         viewModelScope.launch {
-            getShareableLink()?.let { link ->
+            getShareableLink()?.let { baseLink ->
+                val link = injectShareSource(baseLink, "discord")
                 // Discord doesn't have a direct share URL, copy to clipboard and open app
                 val fullMessage = buildShareText(link)
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager

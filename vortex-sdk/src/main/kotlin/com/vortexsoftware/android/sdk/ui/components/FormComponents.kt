@@ -50,11 +50,13 @@ fun HeadingView(
         ?: block.subtype?.removePrefix("h")?.toIntOrNull()
         ?: 2
     val theme = block.theme
-    val color = theme?.getOption("--color-foreground")?.let { parseHexColor(it)?.toComposeColor() } ?: VortexColors.Gray33
+    val color = block.style["color"]?.let { parseHexColor(it)?.toComposeColor() }
+        ?: theme?.getOption("--color-foreground")?.let { parseHexColor(it)?.toComposeColor() }
+        ?: VortexColors.Gray33
     
     val fontSize = when (level) {
-        1 -> 28.sp
-        2 -> 24.sp
+        1 -> 24.sp
+        2 -> 22.sp
         3 -> 20.sp
         4 -> 18.sp
         5 -> 16.sp

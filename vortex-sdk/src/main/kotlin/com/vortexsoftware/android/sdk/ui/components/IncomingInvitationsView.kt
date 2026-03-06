@@ -128,7 +128,6 @@ fun IncomingInvitationsView(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
     ) {
         // Title
         if (!title.isNullOrBlank()) {

@@ -46,7 +46,6 @@ fun ShareOptionsView(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
             .padding(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {

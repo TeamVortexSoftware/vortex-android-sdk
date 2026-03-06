@@ -43,7 +43,12 @@ fun HeadingView(
     modifier: Modifier = Modifier
 ) {
     val text = block.getString("text") ?: block.textContent ?: return
-    val level = block.subtype?.removePrefix("h")?.toIntOrNull() ?: 2
+    val overrideTagName = block.settings?.get("overrideTagName")?.let {
+        (it as? kotlinx.serialization.json.JsonPrimitive)?.content
+    }
+    val level = overrideTagName?.removePrefix("h")?.toIntOrNull()
+        ?: block.subtype?.removePrefix("h")?.toIntOrNull()
+        ?: 2
     val theme = block.theme
     val color = theme?.getOption("--color-foreground")?.let { parseHexColor(it)?.toComposeColor() } ?: VortexColors.Gray33
     

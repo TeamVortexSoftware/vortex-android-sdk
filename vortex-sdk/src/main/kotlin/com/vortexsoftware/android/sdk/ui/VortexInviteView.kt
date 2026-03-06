@@ -414,42 +414,42 @@ private fun RenderBlock(
     
     when (block.subtype) {
         // Headings
-        "h1", "h2", "h3", "h4", "h5", "h6" -> {
+        "h1", "h2", "h3", "h4", "h5", "h6", "vrtx-heading" -> {
             HeadingView(
                 block = block
             )
         }
         
         // Text elements
-        "text", "paragraph", "span", "p" -> {
+        "text", "paragraph", "span", "p", "vrtx-text" -> {
             TextView(
                 block = block
             )
         }
         
         // Form label
-        "label" -> {
+        "label", "vrtx-form-label" -> {
             FormLabelView(
                 block = block
             )
         }
         
         // Image
-        "image" -> {
+        "image", "vrtx-image" -> {
             ImageView(
                 block = block
             )
         }
         
         // Link
-        "link" -> {
+        "link", "vrtx-link" -> {
             LinkView(
                 block = block
             )
         }
         
         // Divider
-        "divider" -> {
+        "divider", "vrtx-divider" -> {
             DividerView()
         }
         
@@ -994,7 +994,7 @@ private fun GoogleContactsPickerView(viewModel: VortexInviteViewModel) {
 
     // Configurable strings (with nested key lookup fallback)
     val block = viewModel.findContactsImportBlock()
-    val titleText = viewModel.customLabel(block, "google.title", "Select from Google Contacts")
+    val titleText = viewModel.customLabel(block, "google.title", "Add from Google Contacts")
     val searchPlaceholder = viewModel.customLabel(block, "google.searchPlaceholder", "Search contacts...")
     val loadingText = viewModel.customLabel(block, "google.loadingText", "Loading Google contacts...")
     val emptyStateText = viewModel.customLabel(block, "google.emptyState", "No Google contacts with email addresses found")
@@ -1131,6 +1131,16 @@ private fun GoogleContactsPickerView(viewModel: VortexInviteViewModel) {
         val allFiltered = frequentlyContacted + grouped.flatMap { it.second }
 
         Column(modifier = Modifier.fillMaxSize()) {
+            // Title header (matching iOS)
+            Text(
+                text = titleText,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = VortexColors.Gray33,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp)
+            )
+
             // Switch account header (above search, matching RN/iOS)
             googleAuthEmail?.let { email ->
                 Row(

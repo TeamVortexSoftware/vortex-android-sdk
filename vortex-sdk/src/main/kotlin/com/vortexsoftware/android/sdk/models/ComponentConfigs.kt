@@ -146,6 +146,7 @@ data class InvitationSuggestionsConfig(
 data class IncomingInvitationItem(
     val id: String,
     val name: String,
+    val userId: String? = null,
     val subtitle: String? = null,
     val avatarUrl: String? = null,
     val isVortexInvitation: Boolean = false,

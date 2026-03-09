@@ -435,7 +435,10 @@ data class IncomingInvitation(
     val createdAt: String? = null,
     val source: String? = null,
     val deliveryType: String? = null,
-    val metadata: Map<String, JsonElement>? = null
+    val metadata: Map<String, JsonElement>? = null,
+    val creatorName: String? = null,
+    val creatorAvatarUrl: String? = null,
+    val creatorId: String? = null
 )
 
 /**

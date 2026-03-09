@@ -86,81 +86,81 @@ private fun ShareButtonForOption(
     shareSuccess: Boolean,
     loadingShare: Boolean
 ) {
-    // Get custom label from block settings if available
-    val customLabel = block.getCustomButtonLabel(option)
+    // Get custom label from block settings if available, using mobile-prefixed keys to match config
+    fun label(key: String): String? = block.getCustomButtonLabel("mobile.$key") ?: block.getCustomButtonLabel(key)
     
     when (option) {
         "copyLink" -> ShareButton(
             icon = VortexIconName.LINK,
-            title = if (copySuccess) "✓ Copied!" else (customLabel ?: "Copy Link"),
+            title = if (copySuccess) (label("copyLink.successText") ?: "✓ Copied!") else (label("copyLink") ?: "Copy Link"),
             isLoading = loadingCopy,
             theme = block.theme,
             onClick = { viewModel.copyLink(context) }
         )
         "nativeShareSheet" -> ShareButton(
             icon = VortexIconName.SHARE,
-            title = if (shareSuccess) "✓ Shared!" else (customLabel ?: "Share Invitation"),
+            title = if (shareSuccess) (label("nativeShareSheet.successText") ?: "✓ Shared!") else (label("nativeShareSheet") ?: "Share Invitation"),
             isLoading = loadingShare,
             theme = block.theme,
             onClick = { viewModel.shareInvitation(context) }
         )
         "sms" -> ShareButton(
             icon = VortexIconName.SMS,
-            title = customLabel ?: "Share via SMS",
+            title = label("sms") ?: "Share via SMS",
             theme = block.theme,
             onClick = { viewModel.shareViaSms(context) }
         )
         "qrCode" -> ShareButton(
             icon = VortexIconName.QR_CODE,
-            title = customLabel ?: "Show QR Code",
+            title = label("qrCode") ?: "Show QR Code",
             theme = block.theme,
             onClick = { viewModel.showQrCode() }
         )
         "line" -> ShareButton(
             icon = VortexIconName.LINE,
-            title = customLabel ?: "Share via LINE",
+            title = label("line") ?: "Share via LINE",
             theme = block.theme,
             onClick = { viewModel.shareViaLine(context) }
         )
         "email" -> ShareButton(
             icon = VortexIconName.EMAIL,
-            title = customLabel ?: "Share via Email",
+            title = label("email") ?: "Share via Email",
             theme = block.theme,
             onClick = { viewModel.shareViaEmail(context) }
         )
         "twitterDms" -> ShareButton(
             icon = VortexIconName.X_TWITTER,
-            title = customLabel ?: "Share via X",
+            title = label("twitterDms") ?: "Share via X",
             theme = block.theme,
             onClick = { viewModel.shareViaTwitter(context) }
         )
         "instagramDms" -> ShareButton(
             icon = VortexIconName.INSTAGRAM,
-            title = customLabel ?: "Share via Instagram",
+            title = label("instagramDms") ?: "Share via Instagram",
             theme = block.theme,
             onClick = { viewModel.shareViaInstagram(context) }
         )
         "whatsApp" -> ShareButton(
             icon = VortexIconName.WHATSAPP,
-            title = customLabel ?: "Share via WhatsApp",
+            title = label("whatsApp") ?: "Share via WhatsApp",
             theme = block.theme,
             onClick = { viewModel.shareViaWhatsApp(context) }
         )
         "facebookMessenger" -> ShareButton(
             icon = VortexIconName.FACEBOOK_MESSENGER,
-            title = customLabel ?: "Share via Messenger",
+            title = label("facebookMessenger") ?: "Share via Messenger",
             theme = block.theme,
             onClick = { viewModel.shareViaFacebookMessenger(context) }
         )
         "telegram" -> ShareButton(
             icon = VortexIconName.TELEGRAM,
-            title = customLabel ?: "Share via Telegram",
+            title = label("telegram") ?: "Share via Telegram",
             theme = block.theme,
             onClick = { viewModel.shareViaTelegram(context) }
         )
         "discord" -> ShareButton(
             icon = VortexIconName.DISCORD,
-            title = customLabel ?: "Share via Discord",
+            title = label("discord") ?: "Share via Discord",
             theme = block.theme,
             onClick = { viewModel.shareViaDiscord(context) }
         )

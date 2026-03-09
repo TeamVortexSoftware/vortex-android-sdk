@@ -108,12 +108,19 @@ fun IncomingInvitationsView(
                 val apiInvitations = pendingInvitations.map { inv ->
                     IncomingInvitationItem(
                         id = inv.id,
-                        name = inv.senderIdentifier ?: "Unknown",
+                        name = inv.creatorName ?: inv.senderIdentifier ?: "Unknown",
+                        userId = inv.creatorId,
                         subtitle = inv.targets?.firstOrNull()?.targetValue,
-                        avatarUrl = inv.avatarUrl,
+                        avatarUrl = inv.creatorAvatarUrl ?: inv.avatarUrl,
                         isVortexInvitation = true,
                         invitation = inv
                     )
+                }
+                // Deduplicate: if an API invitation shares the same userId as an internal one,
+                // remove the internal one and keep the API one (which supports server-side actions)
+                val apiUserIds = apiInvitations.mapNotNull { it.userId }.toSet()
+                allInvitations.removeAll { inv ->
+                    !inv.isVortexInvitation && inv.userId != null && apiUserIds.contains(inv.userId)
                 }
                 allInvitations.addAll(apiInvitations)
             }

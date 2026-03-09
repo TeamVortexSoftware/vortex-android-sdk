@@ -144,7 +144,8 @@ fun FindFriendsView(
                             contactName = contact.name,
                             contactAvatarUrl = contact.avatarUrl,
                             groups = groups,
-                            metadata = mergedMetadata
+                            metadata = mergedMetadata,
+                            subtype = "find-friends"
                         ).onSuccess {
                             connectedIds = connectedIds + contact.id
                             config.onInvitationCreated?.invoke(contact)

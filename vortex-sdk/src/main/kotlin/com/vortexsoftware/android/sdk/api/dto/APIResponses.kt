@@ -253,7 +253,9 @@ data class CreateInvitationRequest(
     @SerialName("templateVariables")
     val templateVariables: Map<String, String>? = null,
     @SerialName("metadata")
-    val metadata: Map<String, kotlinx.serialization.json.JsonElement>? = null
+    val metadata: Map<String, kotlinx.serialization.json.JsonElement>? = null,
+    @SerialName("subtype")
+    val subtype: String? = null
 )
 
 /**

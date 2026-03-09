@@ -238,7 +238,8 @@ class VortexClient(
         passThrough: String? = null,
         configurationAttributes: Map<String, JsonElement>? = null,
         templateVariables: Map<String, String>? = null,
-        metadata: Map<String, Any>? = null
+        metadata: Map<String, Any>? = null,
+        subtype: String? = null
     ): Result<CreateInvitationResponse> {
         val payload = mutableMapOf<String, InvitationPayloadValue>()
         payload["email"] = InvitationPayloadValue(value = JsonPrimitive(inviteeEmail), type = "email")
@@ -258,7 +259,8 @@ class VortexClient(
                     passThrough = passThrough,
                     configurationAttributes = configurationAttributes,
                     templateVariables = templateVariables,
-                    metadata = metadata?.toJsonElementMap()
+                    metadata = metadata?.toJsonElementMap(),
+                    subtype = subtype
                 )
             )
         }
@@ -275,7 +277,8 @@ class VortexClient(
         passThrough: String? = null,
         configurationAttributes: Map<String, JsonElement>? = null,
         templateVariables: Map<String, String>? = null,
-        metadata: Map<String, Any>? = null
+        metadata: Map<String, Any>? = null,
+        subtype: String? = null
     ): Result<CreateInvitationResponse> {
         val payload = mutableMapOf<String, InvitationPayloadValue>()
         
@@ -300,7 +303,8 @@ class VortexClient(
                     passThrough = passThrough,
                     configurationAttributes = configurationAttributes,
                     templateVariables = templateVariables,
-                    metadata = metadata?.toJsonElementMap()
+                    metadata = metadata?.toJsonElementMap(),
+                    subtype = subtype
                 )
             )
         }
@@ -391,7 +395,8 @@ class VortexClient(
         contactAvatarUrl: String? = null,
         groups: List<GroupDTO>? = null,
         templateVariables: Map<String, String>? = null,
-        metadata: Map<String, Any>? = null
+        metadata: Map<String, Any>? = null,
+        subtype: String? = null
     ): Result<CreateInvitationResponse> {
         // Build the target value object: { value: internalId, name: contactName, avatarUrl?: string }
         val targetValueMap = mutableMapOf<String, JsonPrimitive>(
@@ -419,7 +424,8 @@ class VortexClient(
                     source = "internal",
                     groups = groups,
                     templateVariables = templateVariables,
-                    metadata = metadata?.toJsonElementMap()
+                    metadata = metadata?.toJsonElementMap(),
+                    subtype = subtype
                 )
             )
         }

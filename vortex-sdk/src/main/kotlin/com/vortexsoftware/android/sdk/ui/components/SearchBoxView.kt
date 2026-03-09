@@ -225,7 +225,8 @@ fun SearchBoxView(
                                     contactName = contact.name,
                                     contactAvatarUrl = contact.avatarUrl,
                                     groups = groups,
-                                    metadata = mergedMetadata
+                                    metadata = mergedMetadata,
+                                    subtype = "search-box"
                                 ).onSuccess {
                                     // Remove connected contact from results; clear entirely if none remain
                                     val remaining = searchResults?.filter { it.id != contact.id }

@@ -144,7 +144,8 @@ fun InvitationSuggestionsView(
                             contactName = suggestion.name,
                             contactAvatarUrl = suggestion.avatarUrl,
                             groups = groups,
-                            metadata = mergedMetadata
+                            metadata = mergedMetadata,
+                            subtype = "suggestions"
                         ).onSuccess {
                             invitedIds = invitedIds + suggestion.id
                             config.onInvite?.invoke(suggestion)

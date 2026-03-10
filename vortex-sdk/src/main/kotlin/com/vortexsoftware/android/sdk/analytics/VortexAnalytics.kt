@@ -158,7 +158,13 @@ enum class VortexEventName(val eventName: String) {
     WIDGET_EMAIL_VALIDATION_ERROR("widget_email_validation_error"),
     
     /** Emitted when there's an error submitting the email form. */
-    WIDGET_EMAIL_SUBMIT_ERROR("widget_email_submit_error")
+    WIDGET_EMAIL_SUBMIT_ERROR("widget_email_submit_error"),
+
+    /** Emitted when the user clicks the link to view the contacts list. */
+    CONTACTS_LINK_CLICKED("contacts_link_clicked"),
+
+    /** Emitted when the user clicks the button to invite a specific contact. */
+    CONTACTS_INVITE_BUTTON_CLICKED("contactsInvite_button_clicked")
 }
 
 // MARK: - Analytics Client

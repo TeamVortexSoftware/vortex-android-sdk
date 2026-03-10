@@ -583,6 +583,7 @@ private fun RenderBlock(
                         viewModel.fireInvitationSentEvent(InvitationSentEvent.InvitationSource.INVITE_CONTACTS)
                     },
                     onNavigateToContacts = {
+                        viewModel.trackContactsLinkClicked()
                         viewModel.navigateTo(InviteViewState.INVITE_CONTACTS)
                     }
                 )
@@ -1398,6 +1399,7 @@ private fun InviteContactsSecondaryView(viewModel: VortexInviteViewModel) {
                         inviteButtonBorderRadius = inviteButtonBorderRadius,
                         inviteButtonText = inviteButtonText,
                         onInvite = {
+                            viewModel.trackContactsInviteButtonClicked()
                             scope.launch {
                                 actionInProgress = contact.id
                                 viewModel.vortexClient.createSmsInvitation(

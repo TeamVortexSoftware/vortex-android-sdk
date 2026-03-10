@@ -1526,6 +1526,20 @@ class VortexInviteViewModel(
     }
     
     /**
+     * Track contacts link click event (when user clicks to view contacts list)
+     */
+    fun trackContactsLinkClicked() {
+        trackEvent(VortexEventName.CONTACTS_LINK_CLICKED)
+    }
+    
+    /**
+     * Track contacts invite button click event (when user clicks to invite a specific contact)
+     */
+    fun trackContactsInviteButtonClicked() {
+        trackEvent(VortexEventName.CONTACTS_INVITE_BUTTON_CLICKED)
+    }
+    
+    /**
      * Factory for creating VortexInviteViewModel with parameters
      */
     class Factory(

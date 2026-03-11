@@ -556,6 +556,9 @@ private fun RenderBlock(
                     },
                     outgoingInvitationUserIds = viewModel.outgoingInvitationUserIds,
                     isOutgoingInvitationsLoaded = viewModel.isOutgoingInvitationsLoaded,
+                    onListDisplayed = { count ->
+                        viewModel.trackFindFriendsListDisplayed(count)
+                    },
                     block = block
                 )
             }

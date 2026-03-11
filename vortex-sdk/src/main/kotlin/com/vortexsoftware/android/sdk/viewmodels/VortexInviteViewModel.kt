@@ -1526,6 +1526,13 @@ class VortexInviteViewModel(
     }
     
     /**
+     * Track find friends list displayed event (when the list of found friends is rendered)
+     */
+    fun trackFindFriendsListDisplayed(count: Int) {
+        trackEvent(VortexEventName.FIND_FRIENDS_LIST_DISPLAYED, mapOf("count" to count))
+    }
+    
+    /**
      * Track contacts link click event (when user clicks to view contacts list)
      */
     fun trackContactsLinkClicked() {

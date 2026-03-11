@@ -164,7 +164,10 @@ enum class VortexEventName(val eventName: String) {
     CONTACTS_LINK_CLICKED("contacts_link_clicked"),
 
     /** Emitted when the user clicks the button to invite a specific contact. */
-    CONTACTS_INVITE_BUTTON_CLICKED("contactsInvite_button_clicked")
+    CONTACTS_INVITE_BUTTON_CLICKED("contactsInvite_button_clicked"),
+
+    /** Emitted when a list of found friends is displayed. Payload includes the number of friends. */
+    FIND_FRIENDS_LIST_DISPLAYED("findFriends_list_displayed")
 }
 
 // MARK: - Analytics Client

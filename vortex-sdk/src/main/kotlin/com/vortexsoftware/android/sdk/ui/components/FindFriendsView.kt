@@ -48,6 +48,7 @@ fun FindFriendsView(
     onInvitationSent: (() -> Unit)? = null,
     outgoingInvitationUserIds: kotlinx.coroutines.flow.StateFlow<Set<String>>? = null,
     isOutgoingInvitationsLoaded: kotlinx.coroutines.flow.StateFlow<Boolean>? = null,
+    onListDisplayed: ((Int) -> Unit)? = null,
     block: ElementNode? = null,
     modifier: Modifier = Modifier
 ) {
@@ -91,6 +92,13 @@ fun FindFriendsView(
     // Filter out already connected contacts and contacts with outstanding outgoing invitations
     val visibleContacts = contacts.filter { 
         !connectedIds.contains(it.id) && !outgoingIds.contains(it.id)
+    }
+    
+    // Track find friends list displayed event
+    LaunchedEffect(visibleContacts.size) {
+        if (visibleContacts.isNotEmpty()) {
+            onListDisplayed?.invoke(visibleContacts.size)
+        }
     }
     
     // Don't render if no contacts (and outgoing invitations are loaded)

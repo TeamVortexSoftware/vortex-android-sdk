@@ -134,7 +134,7 @@ fun SearchBoxView(
             )
             
             // Search button
-            val searchButtonBrush = (searchButtonBackgroundStyle ?: BackgroundStyle.Solid(DefaultPrimaryBackground.value.toLong())).toBrush()
+            val searchButtonStyle = searchButtonBackgroundStyle ?: BackgroundStyle.Solid(DefaultPrimaryBackground.value.toLong())
             Button(
                 onClick = {
                     if (searchQuery.trim().isNotEmpty() && !isSearching) {
@@ -161,7 +161,7 @@ fun SearchBoxView(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(searchButtonBrush, RoundedCornerShape(8.dp)),
+                        .styledBackground(searchButtonStyle),
                     contentAlignment = Alignment.Center
                 ) {
                     if (isSearching) {
@@ -306,11 +306,11 @@ private fun SearchBoxContactRow(
         Spacer(modifier = Modifier.width(8.dp))
         
         // Connect button with gradient support
-        val backgroundBrush = (connectButtonBackgroundStyle ?: BackgroundStyle.Solid(DefaultPrimaryBackground.value.toLong())).toBrush()
+        val connectStyle = connectButtonBackgroundStyle ?: BackgroundStyle.Solid(DefaultPrimaryBackground.value.toLong())
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(connectButtonBorderRadius.dp))
-                .background(backgroundBrush)
+                .styledBackground(connectStyle)
                 .clickable(enabled = !isLoading, onClick = onConnect)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center

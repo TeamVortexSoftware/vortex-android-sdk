@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -18,6 +19,7 @@ import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import com.vortexsoftware.android.sdk.models.*
+import com.vortexsoftware.android.sdk.ui.theme.createGradientBrush
 import com.vortexsoftware.android.sdk.ui.theme.toComposeColor
 
 // Default colors matching iOS SDK
@@ -28,18 +30,15 @@ internal val DefaultSecondaryForeground = Color(0xFF353e5c)
 internal val DefaultForeground = Color(0xFF334153)
 
 /**
- * Convert a BackgroundStyle to a Compose Brush
+ * Apply a BackgroundStyle as a background modifier.
+ * Uses drawBehind for gradients so the brush is sized to the actual component dimensions.
  */
-internal fun BackgroundStyle.toBrush(): Brush {
-    return when (this) {
-        is BackgroundStyle.Solid -> Brush.linearGradient(listOf(color.toComposeColor(), color.toComposeColor()))
-        is BackgroundStyle.Gradient -> {
-            // Convert CSS angle to Compose gradient direction
-            // CSS: 0deg = bottom to top, 90deg = left to right
-            // We need to calculate start and end points based on angle
-            val angleRad = Math.toRadians(angle.toDouble())
-            val colors = colorStops.sortedBy { it.location }.map { it.color.toComposeColor() }
-            Brush.linearGradient(colors)
+internal fun Modifier.styledBackground(style: BackgroundStyle): Modifier {
+    return when (style) {
+        is BackgroundStyle.Solid -> this.background(style.color.toComposeColor())
+        is BackgroundStyle.Gradient -> this.drawBehind {
+            val brush = createGradientBrush(style.angle, style.colorStops, size)
+            drawRect(brush)
         }
     }
 }

@@ -5,7 +5,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -58,17 +60,17 @@ fun angleToGradientOffsets(degrees: Float): Pair<Offset, Offset> {
 }
 
 /**
- * Create a Compose Brush from a list of gradient color stops
+ * Create a Compose Brush from a list of gradient color stops, sized to the given dimensions.
  */
-fun createGradientBrush(angle: Float, colorStops: List<GradientColorStop>): Brush {
+fun createGradientBrush(angle: Float, colorStops: List<GradientColorStop>, size: Size): Brush {
     val (start, end) = angleToGradientOffsets(angle)
     
     return Brush.linearGradient(
         colorStops = colorStops.map { stop ->
             stop.location to stop.color.toComposeColor()
         }.toTypedArray(),
-        start = Offset(start.x * 1000f, start.y * 1000f),
-        end = Offset(end.x * 1000f, end.y * 1000f)
+        start = Offset(start.x * size.width, start.y * size.height),
+        end = Offset(end.x * size.width, end.y * size.height)
     )
 }
 
@@ -87,10 +89,12 @@ fun Modifier.backgroundStyle(
                 .background(style.color.toComposeColor(), shape)
         }
         is BackgroundStyle.Gradient -> {
-            val brush = createGradientBrush(style.angle, style.colorStops)
             this
                 .clip(shape)
-                .background(brush, shape)
+                .drawBehind {
+                    val brush = createGradientBrush(style.angle, style.colorStops, size)
+                    drawRect(brush)
+                }
         }
         null -> {
             this

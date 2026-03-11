@@ -218,11 +218,11 @@ private fun FindFriendsRow(
         Spacer(modifier = Modifier.width(8.dp))
         
         // Connect button with gradient support
-        val backgroundBrush = (connectButtonBackgroundStyle ?: BackgroundStyle.Solid(DefaultPrimaryBackground.value.toLong())).toBrush()
+        val connectStyle = connectButtonBackgroundStyle ?: BackgroundStyle.Solid(DefaultPrimaryBackground.value.toLong())
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(connectButtonBorderRadius.dp))
-                .background(backgroundBrush)
+                .styledBackground(connectStyle)
                 .clickable(enabled = !isLoading, onClick = onConnect)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center

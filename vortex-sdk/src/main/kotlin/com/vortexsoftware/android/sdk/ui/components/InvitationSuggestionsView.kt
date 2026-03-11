@@ -228,11 +228,11 @@ private fun InvitationSuggestionRow(
         Spacer(modifier = Modifier.width(8.dp))
         
         // Invite button with gradient support
-        val backgroundBrush = (inviteButtonBackgroundStyle ?: BackgroundStyle.Solid(DefaultPrimaryBackground.value.toLong())).toBrush()
+        val inviteStyle = inviteButtonBackgroundStyle ?: BackgroundStyle.Solid(DefaultPrimaryBackground.value.toLong())
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(inviteButtonBorderRadius.dp))
-                .background(backgroundBrush)
+                .styledBackground(inviteStyle)
                 .clickable(enabled = !isLoading, onClick = onInvite)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center

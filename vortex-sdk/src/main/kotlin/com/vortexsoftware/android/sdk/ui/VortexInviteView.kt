@@ -1498,15 +1498,15 @@ private fun InviteContactsRow(
         Spacer(modifier = Modifier.width(8.dp))
         
         // Invite button
-        val backgroundBrush = if (isInvited) {
-            androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color.Gray, Color.Gray))
+        val inviteStyle = if (isInvited) {
+            BackgroundStyle.Solid(Color.Gray.value.toLong())
         } else {
-            (inviteButtonBackgroundStyle ?: BackgroundStyle.Solid(avatarBackgroundColor.value.toLong())).toBrush()
+            inviteButtonBackgroundStyle ?: BackgroundStyle.Solid(avatarBackgroundColor.value.toLong())
         }
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(inviteButtonBorderRadius.dp))
-                .background(backgroundBrush)
+                .styledBackground(inviteStyle)
                 .clickable(enabled = !isLoading && !isInvited, onClick = onInvite)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center

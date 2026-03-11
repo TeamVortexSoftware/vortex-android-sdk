@@ -342,7 +342,7 @@ private fun IncomingInvitationRow(
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(acceptButtonBorderRadius.dp))
-                .background(acceptButtonBackgroundStyle.toBrush())
+                .styledBackground(acceptButtonBackgroundStyle)
                 .clickable(enabled = !isLoading, onClick = onAccept)
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center

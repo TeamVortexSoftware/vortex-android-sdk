@@ -73,9 +73,12 @@ fun SearchBoxView(
     
     val borderColor = block?.getThemeOption("--vrtx-search-box-border-color")?.let { parseColor(it) } ?: Color(0xFFCCCCCC)
     
+    val inputColor = block?.getThemeOption("--vrtx-search-box-input-color")?.let { parseColor(it) } ?: DefaultForeground
+    val inputFontSize = block?.getThemeOption("--vrtx-search-box-input-font-size")?.let { parseFontSize(it) } ?: 16f
+    val inputFontFamily = block?.getThemeOption("--vrtx-search-box-input-font-family")?.let { parseFontFamily(it) }
+    val inputFontWeight = block?.getThemeOption("--vrtx-search-box-input-font-weight")?.let { parseFontWeight(it) }
+    
     val placeholderColor = block?.getThemeOption("--vrtx-search-box-placeholder-color")?.let { parseColor(it) } ?: Color(0xFF999999)
-    val placeholderFontSize = block?.getThemeOption("--vrtx-search-box-placeholder-font-size")?.let { parseFontSize(it) } ?: 16f
-    val placeholderFontFamily = block?.getThemeOption("--vrtx-search-box-placeholder-font-family")?.let { parseFontFamily(it) }
     
     // Extract customization text from block settings
     val title = block?.getTitle()
@@ -123,9 +126,7 @@ fun SearchBoxView(
                 placeholder = {
                     Text(
                         text = placeholder,
-                        fontSize = placeholderFontSize.sp,
-                        color = placeholderColor,
-                        fontFamily = placeholderFontFamily
+                        color = placeholderColor
                     )
                 },
                 singleLine = true,
@@ -133,6 +134,12 @@ fun SearchBoxView(
                     .weight(1f)
                     .height(52.dp),
                 shape = RoundedCornerShape(8.dp),
+                textStyle = androidx.compose.ui.text.TextStyle(
+                    color = inputColor,
+                    fontSize = inputFontSize.sp,
+                    fontFamily = inputFontFamily,
+                    fontWeight = inputFontWeight
+                ),
                 colors = OutlinedTextFieldDefaults.colors(
                     unfocusedBorderColor = borderColor,
                     focusedBorderColor = DefaultPrimaryBackground

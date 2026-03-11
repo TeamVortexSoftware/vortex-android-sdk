@@ -1331,9 +1331,12 @@ private fun InviteContactsSecondaryView(viewModel: VortexInviteViewModel) {
     val inviteButtonTextColor = block?.getThemeOption("--vrtx-invite-contacts-invite-button-color")?.let { parseHexColor(it)?.toComposeColor() } ?: Color(0xFF1A73E8)
     val inviteButtonBorderRadius = block?.getThemeOption("--vrtx-invite-contacts-invite-button-border-radius")?.let { parseBorderRadius(it) } ?: 8f
     
+    val inputColor = block?.getThemeOption("--vrtx-invite-contacts-input-color")?.let { parseHexColor(it)?.toComposeColor() } ?: VortexColors.Gray33
+    val inputFontSize = block?.getThemeOption("--vrtx-invite-contacts-input-font-size")?.let { parseFontSize(it) } ?: 16f
+    val inputFontFamily = block?.getThemeOption("--vrtx-invite-contacts-input-font-family")?.let { parseFontFamily(it) }
+    val inputFontWeight = block?.getThemeOption("--vrtx-invite-contacts-input-font-weight")?.let { parseFontWeight(it) }
+    
     val placeholderColor = block?.getThemeOption("--vrtx-invite-contacts-placeholder-color")?.let { parseHexColor(it)?.toComposeColor() } ?: VortexColors.Gray66
-    val placeholderFontSize = block?.getThemeOption("--vrtx-invite-contacts-placeholder-font-size")?.let { parseFontSize(it) } ?: 16f
-    val placeholderFontFamily = block?.getThemeOption("--vrtx-invite-contacts-placeholder-font-family")?.let { parseFontFamily(it) }
     
     // Customization text
     val inviteButtonText = block?.getCustomButtonLabel("inviteButton") ?: "Invite"
@@ -1365,12 +1368,18 @@ private fun InviteContactsSecondaryView(viewModel: VortexInviteViewModel) {
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text(searchPlaceholderText, fontSize = placeholderFontSize.sp, color = placeholderColor, fontFamily = placeholderFontFamily) },
+            placeholder = { Text(searchPlaceholderText, color = placeholderColor) },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 12.dp),
             singleLine = true,
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(8.dp),
+            textStyle = androidx.compose.ui.text.TextStyle(
+                color = inputColor,
+                fontSize = inputFontSize.sp,
+                fontFamily = inputFontFamily,
+                fontWeight = inputFontWeight
+            )
         )
         
         // Contact rows or empty state

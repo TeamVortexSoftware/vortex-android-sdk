@@ -11,6 +11,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -97,6 +98,20 @@ internal fun parseFontWeight(weight: String?): FontWeight? {
 internal fun parseFontSize(size: String?): Float? {
     if (size.isNullOrBlank()) return null
     return size.replace("px", "").replace("sp", "").trim().toFloatOrNull()
+}
+
+/**
+ * Helper to parse font family string to a Compose FontFamily
+ */
+internal fun parseFontFamily(family: String?): FontFamily? {
+    if (family.isNullOrBlank()) return null
+    return when (family.trim().lowercase().removeSurrounding("\"").removeSurrounding("'")) {
+        "serif" -> FontFamily.Serif
+        "sans-serif", "system-ui", "default" -> FontFamily.SansSerif
+        "monospace", "mono" -> FontFamily.Monospace
+        "cursive" -> FontFamily.Cursive
+        else -> FontFamily.SansSerif
+    }
 }
 
 /**

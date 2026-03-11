@@ -56,8 +56,8 @@ fun FindFriendsView(
     val titleFontSize = block?.getThemeOption("--vrtx-find-friends-title-font-size")?.let { parseFontSize(it) } ?: 18f
     val titleFontWeight = block?.getThemeOption("--vrtx-find-friends-title-font-weight")?.let { parseFontWeight(it) } ?: FontWeight.SemiBold
     
-    val nameColor = block?.getThemeOption("--vrtx-find-friends-name-color")?.let { parseColor(it) } ?: DefaultForeground
-    val subtitleColor = block?.getThemeOption("--vrtx-find-friends-subtitle-color")?.let { parseColor(it) } ?: DefaultSecondaryForeground
+    val nameColor = block?.getThemeOption("--vrtx-find-friends-contact-name-color")?.let { parseColor(it) } ?: DefaultForeground
+    val subtitleColor = block?.getThemeOption("--vrtx-find-friends-contact-subtitle-color")?.let { parseColor(it) } ?: DefaultSecondaryForeground
     
     val avatarBackground = block?.getThemeOption("--vrtx-find-friends-avatar-background")?.let { parseColor(it) } ?: DefaultPrimaryBackground
     val avatarTextColor = block?.getThemeOption("--vrtx-find-friends-avatar-color")?.let { parseColor(it) } ?: DefaultPrimaryForeground

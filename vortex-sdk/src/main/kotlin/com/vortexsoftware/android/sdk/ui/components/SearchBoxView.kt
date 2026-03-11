@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -72,6 +73,10 @@ fun SearchBoxView(
     
     val borderColor = block?.getThemeOption("--vrtx-search-box-border-color")?.let { parseColor(it) } ?: Color(0xFFCCCCCC)
     
+    val placeholderColor = block?.getThemeOption("--vrtx-search-box-placeholder-color")?.let { parseColor(it) } ?: Color(0xFF999999)
+    val placeholderFontSize = block?.getThemeOption("--vrtx-search-box-placeholder-font-size")?.let { parseFontSize(it) } ?: 16f
+    val placeholderFontFamily = block?.getThemeOption("--vrtx-search-box-placeholder-font-family")?.let { parseFontFamily(it) }
+    
     // Extract customization text from block settings
     val title = block?.getTitle()
     val connectButtonText = block?.getCustomButtonLabel("connectButton") ?: "Connect"
@@ -118,8 +123,9 @@ fun SearchBoxView(
                 placeholder = {
                     Text(
                         text = placeholder,
-                        fontSize = 16.sp,
-                        color = Color(0xFF999999)
+                        fontSize = placeholderFontSize.sp,
+                        color = placeholderColor,
+                        fontFamily = placeholderFontFamily
                     )
                 },
                 singleLine = true,

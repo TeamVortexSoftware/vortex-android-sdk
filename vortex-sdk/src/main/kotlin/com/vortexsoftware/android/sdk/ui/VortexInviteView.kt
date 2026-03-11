@@ -1331,6 +1331,10 @@ private fun InviteContactsSecondaryView(viewModel: VortexInviteViewModel) {
     val inviteButtonTextColor = block?.getThemeOption("--vrtx-invite-contacts-invite-button-color")?.let { parseHexColor(it)?.toComposeColor() } ?: Color(0xFF1A73E8)
     val inviteButtonBorderRadius = block?.getThemeOption("--vrtx-invite-contacts-invite-button-border-radius")?.let { parseBorderRadius(it) } ?: 8f
     
+    val placeholderColor = block?.getThemeOption("--vrtx-invite-contacts-placeholder-color")?.let { parseHexColor(it)?.toComposeColor() } ?: VortexColors.Gray66
+    val placeholderFontSize = block?.getThemeOption("--vrtx-invite-contacts-placeholder-font-size")?.let { parseFontSize(it) } ?: 16f
+    val placeholderFontFamily = block?.getThemeOption("--vrtx-invite-contacts-placeholder-font-family")?.let { parseFontFamily(it) }
+    
     // Customization text
     val inviteButtonText = block?.getCustomButtonLabel("inviteButton") ?: "Invite"
     val emptyStateMessage = block?.getCustomButtonLabel("emptyStateMessage") ?: "No contacts to invite"
@@ -1361,7 +1365,7 @@ private fun InviteContactsSecondaryView(viewModel: VortexInviteViewModel) {
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text(searchPlaceholderText, fontSize = 16.sp) },
+            placeholder = { Text(searchPlaceholderText, fontSize = placeholderFontSize.sp, color = placeholderColor, fontFamily = placeholderFontFamily) },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 12.dp),

@@ -6,6 +6,8 @@ import com.vortexsoftware.android.sdk.models.WidgetConfiguration
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Prefetches widget configuration for instant rendering.
@@ -49,6 +51,9 @@ class VortexConfigurationPrefetcher(
         enableLogging = enableLogging
     )
     
+    private val prefetchMutex = Mutex()
+    private var hasFetched = false
+    
     private val _isLoading = MutableStateFlow(false)
     /** Current prefetch loading state */
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -79,60 +84,71 @@ class VortexConfigurationPrefetcher(
      * @return The prefetched configuration, or null if prefetch failed
      */
     suspend fun prefetch(jwt: String): WidgetConfiguration? {
-        // Check if already cached
+        // Check if already cached (fast path, no lock needed)
         VortexConfigurationCache.get(componentId)?.let { cached ->
             _isPrefetched.value = true
             return cached.configuration
         }
         
-        _isLoading.value = true
-        _error.value = null
-        
-        return try {
-            val clientWithJwt = VortexClient(
-                baseUrl = apiBaseUrl,
-                jwt = jwt,
-                enableLogging = enableLogging
-            )
+        // Use mutex to ensure only one API call is ever made, even under concurrent calls
+        return prefetchMutex.withLock {
+            // Double-check after acquiring lock
+            if (hasFetched) {
+                return@withLock VortexConfigurationCache.get(componentId)?.configuration
+            }
             
-            val result = clientWithJwt.getWidgetConfiguration(componentId, locale)
+            _isLoading.value = true
+            _error.value = null
             
-            result.fold(
-                onSuccess = { response ->
-                    val config = WidgetConfiguration.fromDTO(response.data)
-                    val deploymentId = response.data.deploymentId
-                    
-                    // Store in shared cache
-                    VortexConfigurationCache.set(
-                        componentId = componentId,
-                        configuration = config,
-                        deploymentId = deploymentId
-                    )
-                    
-                    // Also prefetch outgoing invitations (silently fail if it errors)
-                    try {
-                        clientWithJwt.getOutgoingInvitations()
-                            .onSuccess { invitations ->
-                                VortexConfigurationCache.setOutgoingInvitations(jwt, invitations)
-                            }
-                    } catch (_: Exception) {
-                        // Silently fail - outgoing invitations prefetch is best-effort
+            try {
+                val clientWithJwt = VortexClient(
+                    baseUrl = apiBaseUrl,
+                    jwt = jwt,
+                    enableLogging = enableLogging
+                )
+                
+                val result = clientWithJwt.getWidgetConfiguration(componentId, locale)
+                
+                result.fold(
+                    onSuccess = { response ->
+                        val config = WidgetConfiguration.fromDTO(response.data)
+                        val deploymentId = response.data.deploymentId
+                        
+                        // Store in shared cache
+                        VortexConfigurationCache.set(
+                            componentId = componentId,
+                            configuration = config,
+                            deploymentId = deploymentId
+                        )
+                        
+                        // Also prefetch outgoing invitations (silently fail if it errors)
+                        try {
+                            clientWithJwt.getOutgoingInvitations()
+                                .onSuccess { invitations ->
+                                    VortexConfigurationCache.setOutgoingInvitations(jwt, invitations)
+                                }
+                        } catch (_: Exception) {
+                            // Silently fail - outgoing invitations prefetch is best-effort
+                        }
+                        
+                        hasFetched = true
+                        _isPrefetched.value = true
+                        _isLoading.value = false
+                        config
+                    },
+                    onFailure = { e ->
+                        hasFetched = true
+                        _error.value = e
+                        _isLoading.value = false
+                        null
                     }
-                    
-                    _isPrefetched.value = true
-                    _isLoading.value = false
-                    config
-                },
-                onFailure = { e ->
-                    _error.value = e
-                    _isLoading.value = false
-                    null
-                }
-            )
-        } catch (e: Exception) {
-            _error.value = e
-            _isLoading.value = false
-            null
+                )
+            } catch (e: Exception) {
+                hasFetched = true
+                _error.value = e
+                _isLoading.value = false
+                null
+            }
         }
     }
     
@@ -141,6 +157,7 @@ class VortexConfigurationPrefetcher(
      */
     fun clearCache() {
         VortexConfigurationCache.clear(componentId)
+        hasFetched = false
         _isPrefetched.value = false
     }
 }

@@ -369,12 +369,19 @@ class VortexInviteViewModel(
             return false
         }
     
+    // Guards against concurrent and rapid-fire configuration fetches.
+    private var isLoadingConfiguration = false
+    private var lastFetchTime: Long = 0L
+    private val minFetchIntervalMs: Long = 30_000
+
     /**
      * Load widget configuration with stale-while-revalidate pattern.
      * If cached/prefetched configuration exists, it's used immediately (no loading spinner).
      * Fresh configuration is always fetched in the background to ensure up-to-date data.
      */
     fun loadConfiguration() {
+        if (isLoadingConfiguration) return
+        isLoadingConfiguration = true
         viewModelScope.launch {
             _error.value = null
             
@@ -418,7 +425,15 @@ class VortexInviteViewModel(
                 _isLoading.value = true
             }
             
-            // Step 3: Always fetch fresh configuration (stale-while-revalidate)
+            // Step 3: Fetch fresh configuration (stale-while-revalidate) unless recently fetched
+            val now = System.currentTimeMillis()
+            if (lastFetchTime > 0 && (now - lastFetchTime) < minFetchIntervalMs && hasCachedConfig) {
+                _isLoading.value = false
+                isLoadingConfiguration = false
+                fetchOutgoingInvitations()
+                return@launch
+            }
+
             client.getWidgetConfiguration(componentId, locale)
                 .onSuccess { response ->
                     val freshConfig = WidgetConfiguration.fromDTO(response.data)
@@ -433,7 +448,9 @@ class VortexInviteViewModel(
                         deploymentId = response.data.deploymentId
                     )
                     
+                    lastFetchTime = System.currentTimeMillis()
                     _isLoading.value = false
+                    isLoadingConfiguration = false
                     // Track widget render on successful load
                     trackWidgetRender()
                     
@@ -454,6 +471,7 @@ class VortexInviteViewModel(
                         trackWidgetError(errorMessage)
                     }
                     _isLoading.value = false
+                    isLoadingConfiguration = false
                 }
         }
     }

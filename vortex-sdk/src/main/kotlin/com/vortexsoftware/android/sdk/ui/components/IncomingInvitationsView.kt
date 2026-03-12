@@ -132,6 +132,11 @@ fun IncomingInvitationsView(
         isLoading = false
     }
     
+    // Hide entire section when loaded and empty (align with iOS behavior)
+    if (!isLoading && error == null && invitations.isEmpty()) {
+        return
+    }
+    
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -162,16 +167,6 @@ fun IncomingInvitationsView(
                 Text(
                     text = error!!,
                     color = Color.Red,
-                    fontSize = 14.sp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp)
-                )
-            }
-            invitations.isEmpty() -> {
-                Text(
-                    text = emptyStateMessage,
-                    color = Color.Gray,
                     fontSize = 14.sp,
                     modifier = Modifier
                         .fillMaxWidth()

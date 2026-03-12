@@ -121,6 +121,11 @@ fun OutgoingInvitationsView(
     // Compute loading state: show shimmer only when not loaded AND we don't have stale data
     val showShimmer = !isLoaded && invitations.isEmpty()
     
+    // Hide entire section when loaded and empty (align with iOS behavior)
+    if (isLoaded && error == null && invitations.isEmpty()) {
+        return
+    }
+    
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -144,16 +149,6 @@ fun OutgoingInvitationsView(
                 Text(
                     text = error!!,
                     color = Color.Red,
-                    fontSize = 14.sp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp)
-                )
-            }
-            invitations.isEmpty() && isLoaded -> {
-                Text(
-                    text = emptyStateMessage,
-                    color = Color.Gray,
                     fontSize = 14.sp,
                     modifier = Modifier
                         .fillMaxWidth()

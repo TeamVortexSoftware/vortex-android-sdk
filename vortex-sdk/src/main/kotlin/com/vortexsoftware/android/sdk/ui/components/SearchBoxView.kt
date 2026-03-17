@@ -15,7 +15,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vortexsoftware.android.sdk.api.VortexClient
@@ -130,9 +132,13 @@ fun SearchBoxView(
                     )
                 },
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.None,
+                    autoCorrectEnabled = false
+                ),
                 modifier = Modifier
-                    .weight(1f)
-                    .height(52.dp),
+                        .weight(1f)
+                        .height(52.dp),
                 shape = RoundedCornerShape(8.dp),
                 textStyle = androidx.compose.ui.text.TextStyle(
                     color = inputColor,

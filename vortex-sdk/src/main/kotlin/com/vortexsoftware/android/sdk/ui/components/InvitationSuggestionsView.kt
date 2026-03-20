@@ -73,6 +73,9 @@ fun InvitationSuggestionsView(
     var invitedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var dismissedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     
+    // Track which suggestion IDs have been selected for display (for maxDisplayCount)
+    var selectedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    
     val scope = rememberCoroutineScope()
     
     // Observe outgoing invitation user IDs for filtering
@@ -87,9 +90,33 @@ fun InvitationSuggestionsView(
         }
     }
 
+    // IDs that should be excluded from display
+    val excludedIds = dismissedIds + invitedIds + outgoingIds
+    
     // Filter out dismissed, invited, and contacts with outstanding outgoing invitations
-    val visibleSuggestions = suggestions.filter {
-        !dismissedIds.contains(it.id) && !invitedIds.contains(it.id) && !outgoingIds.contains(it.id)
+    val availableSuggestions = suggestions.filter { !excludedIds.contains(it.id) }
+    
+    // Apply maxDisplayCount logic: select a random subset and backfill as suggestions are removed
+    val visibleSuggestions = if (config.maxDisplayCount != null && config.maxDisplayCount > 0) {
+        val maxN = config.maxDisplayCount
+        // Clean selectedIds: remove any that are no longer available
+        val validSelected = selectedIds.filter { id -> availableSuggestions.any { it.id == id } }.toSet()
+        // If we need more suggestions, backfill from the pool
+        val needed = maxN - validSelected.size
+        val newSelected = if (needed > 0) {
+            val pool = availableSuggestions.filter { !validSelected.contains(it.id) }
+            val backfill = pool.shuffled().take(needed).map { it.id }.toSet()
+            validSelected + backfill
+        } else {
+            validSelected
+        }
+        // Update selectedIds state if changed
+        if (newSelected != selectedIds) {
+            selectedIds = newSelected
+        }
+        availableSuggestions.filter { newSelected.contains(it.id) }.sortedBy { it.name.lowercase() }
+    } else {
+        availableSuggestions
     }
     
     // Don't render if no suggestions (and outgoing invitations are loaded)

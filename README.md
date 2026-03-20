@@ -279,6 +279,7 @@ VortexInviteView(
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `contacts` | `List<FindFriendsContact>` | Yes | List of contacts to display |
+| `maxDisplayCount` | `Int?` | No | Maximum number of contacts to display at once. If the total exceeds this value, a random subset is shown in alphabetical order. Removed contacts are replaced from the remaining pool until exhausted. Defaults to `null` (show all). |
 | `onInvitationCreated` | `suspend (FindFriendsContact) -> Unit` | No | Called after successful invitation |
 
 ### Invitation Suggestions
@@ -341,6 +342,7 @@ VortexInviteView(
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `suggestions` | `List<InvitationSuggestionContact>` | Yes | List of suggested contacts |
+| `maxDisplayCount` | `Int?` | No | Maximum number of suggestions to display at once. If the total exceeds this value, a random subset is shown in alphabetical order. Removed suggestions are replaced from the remaining pool until exhausted. Defaults to `null` (show all). |
 | `onInvite` | `suspend (InvitationSuggestionContact) -> Unit` | No | Called after successful invitation |
 | `onDismiss` | `suspend (InvitationSuggestionContact) -> Unit` | No | Called when user dismisses a suggestion |
 

@@ -36,11 +36,18 @@ data class FindFriendsContact(
  * with targetType = internalId is created via the Vortex API.
  *
  * @property contacts List of contacts to display
+ * @property maxDisplayCount Optional maximum number of contacts to display at once.
+ *                          If the total number of contacts exceeds this value, a random subset
+ *                          of this size is displayed in alphabetical order. When a contact is
+ *                          removed (e.g., connected), it is replaced by another contact from
+ *                          the remaining pool until the pool is exhausted.
+ *                          If null or not specified, all contacts are displayed.
  * @property onInvitationCreated Optional callback called after an invitation is successfully created.
  *                               Use this to trigger in-app notifications or update your UI.
  */
 data class FindFriendsConfig(
     val contacts: List<FindFriendsContact>,
+    val maxDisplayCount: Int? = null,
     val onInvitationCreated: (suspend (FindFriendsContact) -> Unit)? = null
 )
 
@@ -113,6 +120,12 @@ data class InvitationSuggestionContact(
  * and a dismiss (X) button.
  *
  * @property suggestions List of suggested contacts to display
+ * @property maxDisplayCount Optional maximum number of suggestions to display at once.
+ *                          If the total number of suggestions exceeds this value, a random subset
+ *                          of this size is displayed in alphabetical order. When a suggestion is
+ *                          removed (e.g., invited or dismissed), it is replaced by another suggestion
+ *                          from the remaining pool until the pool is exhausted.
+ *                          If null or not specified, all suggestions are displayed.
  * @property onInvite Callback when user taps "Invite" on a suggestion.
  *                    Called after the API invitation succeeds.
  * @property onDismiss Callback when user taps the dismiss (X) button.
@@ -120,6 +133,7 @@ data class InvitationSuggestionContact(
  */
 data class InvitationSuggestionsConfig(
     val suggestions: List<InvitationSuggestionContact>,
+    val maxDisplayCount: Int? = null,
     val onInvite: (suspend (InvitationSuggestionContact) -> Unit)? = null,
     val onDismiss: (suspend (InvitationSuggestionContact) -> Unit)? = null
 )

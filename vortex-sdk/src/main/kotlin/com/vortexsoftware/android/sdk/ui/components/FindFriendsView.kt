@@ -75,6 +75,9 @@ fun FindFriendsView(
     var actionInProgress by remember { mutableStateOf<String?>(null) }
     var connectedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     
+    // Track which contact IDs have been selected for display (for maxDisplayCount)
+    var selectedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    
     val scope = rememberCoroutineScope()
     
     // Observe outgoing invitation user IDs for filtering
@@ -89,9 +92,33 @@ fun FindFriendsView(
         }
     }
     
+    // IDs that should be excluded from display (connected or already have outgoing invitations)
+    val excludedIds = connectedIds + outgoingIds
+    
     // Filter out already connected contacts and contacts with outstanding outgoing invitations
-    val visibleContacts = contacts.filter { 
-        !connectedIds.contains(it.id) && !outgoingIds.contains(it.id)
+    val availableContacts = contacts.filter { !excludedIds.contains(it.id) }
+    
+    // Apply maxDisplayCount logic: select a random subset and backfill as contacts are removed
+    val visibleContacts = if (config.maxDisplayCount != null && config.maxDisplayCount > 0) {
+        val maxN = config.maxDisplayCount
+        // Clean selectedIds: remove any that are no longer available
+        val validSelected = selectedIds.filter { id -> availableContacts.any { it.id == id } }.toSet()
+        // If we need more contacts, backfill from the pool
+        val needed = maxN - validSelected.size
+        val newSelected = if (needed > 0) {
+            val pool = availableContacts.filter { !validSelected.contains(it.id) }
+            val backfill = pool.shuffled().take(needed).map { it.id }.toSet()
+            validSelected + backfill
+        } else {
+            validSelected
+        }
+        // Update selectedIds state if changed
+        if (newSelected != selectedIds) {
+            selectedIds = newSelected
+        }
+        availableContacts.filter { newSelected.contains(it.id) }.sortedBy { it.name.lowercase() }
+    } else {
+        availableContacts
     }
     
     // Track find friends list displayed event

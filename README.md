@@ -242,8 +242,8 @@ VortexInviteView(
     jwt = jwt,
     findFriendsConfig = FindFriendsConfig(
         contacts = listOf(
-            FindFriendsContact(internalId = "user-123", name = "Alice Johnson", subtitle = "@alice"),
-            FindFriendsContact(internalId = "user-456", name = "Bob Smith", subtitle = "@bob")
+            FindFriendsContact(internalId = "user-123", name = "Alice Johnson", subtitle = "@alice", email = "alice@example.com"),
+            FindFriendsContact(internalId = "user-456", name = "Bob Smith", subtitle = "@bob", email = "bob@example.com")
         ),
         onInvitationCreated = { contact ->
             // Called after an invitation is successfully created
@@ -272,6 +272,7 @@ VortexInviteView(
 | `name` | `String` | Yes | Display name |
 | `subtitle` | `String?` | No | Secondary text (e.g., username) |
 | `avatarUrl` | `String?` | No | Avatar image URL |
+| `email` | `String?` | No | Optional email address. When provided, the invitation is created with both an internal ID target and an email target (multi-target), enabling features like email reminders. |
 | `metadata` | `Map<String, Any>?` | No | Custom metadata (included in invitation payload) |
 
 **FindFriendsConfig Properties:**
@@ -332,7 +333,7 @@ VortexInviteView(
 |----------|------|----------|-------------|
 | `id` | `String` | Yes | Unique identifier |
 | `name` | `String` | Yes | Display name |
-| `email` | `String` | Yes | Email address for the invitation |
+| `email` | `String?` | No | Optional email address. When provided, the invitation is created with both an internal ID target and an email target (multi-target), enabling features like email reminders. |
 | `avatarUrl` | `String?` | No | Avatar image URL |
 | `reason` | `String?` | No | Reason why this contact is suggested |
 | `metadata` | `Map<String, Any>?` | No | Custom metadata |
@@ -368,7 +369,8 @@ VortexInviteView(
                     userId = user.id,
                     name = user.displayName,
                     subtitle = "@${user.username}",
-                    avatarUrl = user.avatarUrl
+                    avatarUrl = user.avatarUrl,
+                    email = user.email  // Optional: enables multi-target invitations
                 )
             }
         },
@@ -399,6 +401,7 @@ VortexInviteView(
 | `name` | `String` | Yes | Display name |
 | `subtitle` | `String?` | No | Secondary text (e.g., username) |
 | `avatarUrl` | `String?` | No | Avatar image URL |
+| `email` | `String?` | No | Optional email address. When provided, the invitation is created with both an internal ID target and an email target (multi-target), enabling features like email reminders. |
 | `metadata` | `Map<String, Any>?` | No | Custom metadata |
 
 **SearchBoxConfig Properties:**

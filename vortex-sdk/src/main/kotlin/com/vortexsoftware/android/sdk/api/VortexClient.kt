@@ -393,6 +393,7 @@ class VortexClient(
         internalId: String,
         contactName: String? = null,
         contactAvatarUrl: String? = null,
+        contactEmail: String? = null,
         groups: List<GroupDTO>? = null,
         templateVariables: Map<String, String>? = null,
         metadata: Map<String, Any>? = null,
@@ -408,11 +409,13 @@ class VortexClient(
         }
 
         // Build payload matching iOS/RN SDK format:
-        // { internalId: { type: "internal", value: { value, name, avatarUrl? } } }
+        // { internalId: { type: "internal", value: { value, name, avatarUrl? }, email?: "x@y.com" } }
+        // DEV-2043: Email goes INSIDE the internalId field for multi-target support
         val payload = mapOf(
             "internalId" to InvitationPayloadValue(
                 value = JsonObject(targetValueMap),
-                type = "internal"
+                type = "internal",
+                email = contactEmail
             )
         )
 

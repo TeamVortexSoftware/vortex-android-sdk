@@ -243,6 +243,7 @@ fun SearchBoxView(
                                     internalId = contact.userId,
                                     contactName = contact.name,
                                     contactAvatarUrl = contact.avatarUrl,
+                                    contactEmail = contact.email,
                                     groups = groups,
                                     metadata = mergedMetadata,
                                     subtype = "search-box"

@@ -170,6 +170,7 @@ fun InvitationSuggestionsView(
                             internalId = suggestion.id,
                             contactName = suggestion.name,
                             contactAvatarUrl = suggestion.avatarUrl,
+                            contactEmail = suggestion.email,
                             groups = groups,
                             metadata = mergedMetadata,
                             subtype = "suggestions"
@@ -242,14 +243,16 @@ private fun InvitationSuggestionRow(
             )
             // Use reason if available, otherwise show email as subtitle
             val subtitleText = suggestion.reason ?: suggestion.email
-            Text(
-                text = subtitleText,
-                fontSize = 13.sp,
-                color = subtitleColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                lineHeight = 13.sp
-            )
+            if (subtitleText != null) {
+                Text(
+                    text = subtitleText,
+                    fontSize = 13.sp,
+                    color = subtitleColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 13.sp
+                )
+            }
         }
         
         Spacer(modifier = Modifier.width(8.dp))

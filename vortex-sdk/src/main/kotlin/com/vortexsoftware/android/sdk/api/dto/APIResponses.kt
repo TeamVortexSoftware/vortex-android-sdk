@@ -268,7 +268,9 @@ data class InvitationPayloadValue(
     @SerialName("type")
     val type: String,
     @SerialName("role")
-    val role: String? = null
+    val role: String? = null,
+    @SerialName("email")
+    val email: String? = null
 )
 
 /**

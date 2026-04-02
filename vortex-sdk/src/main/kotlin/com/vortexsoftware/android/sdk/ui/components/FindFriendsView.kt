@@ -178,6 +178,7 @@ fun FindFriendsView(
                             internalId = contact.id,
                             contactName = contact.name,
                             contactAvatarUrl = contact.avatarUrl,
+                            contactEmail = contact.email,
                             groups = groups,
                             metadata = mergedMetadata,
                             subtype = "find-friends"

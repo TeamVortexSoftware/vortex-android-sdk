@@ -22,6 +22,7 @@ data class FindFriendsContact(
     val name: String,
     val subtitle: String? = null,
     val avatarUrl: String? = null,
+    val email: String? = null,
     val metadata: Map<String, Any>? = null
 ) {
     // Convenience property for ID access
@@ -106,7 +107,7 @@ data class InviteContactsConfig(
 data class InvitationSuggestionContact(
     val id: String,
     val name: String,
-    val email: String,
+    val email: String? = null,
     val avatarUrl: String? = null,
     val reason: String? = null,
     val metadata: Map<String, Any>? = null
@@ -257,6 +258,7 @@ data class SearchBoxContact(
     val name: String,
     val subtitle: String? = null,
     val avatarUrl: String? = null,
+    val email: String? = null,
     val metadata: Map<String, Any>? = null
 ) {
     val id: String get() = userId

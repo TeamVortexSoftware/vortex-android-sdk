@@ -53,6 +53,7 @@ fun SearchBoxView(
     onInvitationSent: (() -> Unit)? = null,
     outgoingInvitationUserIds: kotlinx.coroutines.flow.StateFlow<Set<String>>? = null,
     block: ElementNode? = null,
+    locale: String? = null,
     modifier: Modifier = Modifier
 ) {
     // Extract theme values from block or use defaults
@@ -246,7 +247,8 @@ fun SearchBoxView(
                                     contactEmail = contact.email,
                                     groups = groups,
                                     metadata = mergedMetadata,
-                                    subtype = "search-box"
+                                    subtype = "search-box",
+                                    locale = locale
                                 ).onSuccess {
                                     // Remove connected contact from results; clear entirely if none remain
                                     val remaining = searchResults?.filter { it.id != contact.id }

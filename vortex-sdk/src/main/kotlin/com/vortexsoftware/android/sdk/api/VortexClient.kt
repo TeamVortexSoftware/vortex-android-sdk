@@ -239,7 +239,8 @@ class VortexClient(
         configurationAttributes: Map<String, JsonElement>? = null,
         templateVariables: Map<String, String>? = null,
         metadata: Map<String, Any>? = null,
-        subtype: String? = null
+        subtype: String? = null,
+        locale: String? = null
     ): Result<CreateInvitationResponse> {
         val payload = mutableMapOf<String, InvitationPayloadValue>()
         payload["email"] = InvitationPayloadValue(value = JsonPrimitive(inviteeEmail), type = "email")
@@ -260,12 +261,13 @@ class VortexClient(
                     configurationAttributes = configurationAttributes,
                     templateVariables = templateVariables,
                     metadata = metadata?.toJsonElementMap(),
-                    subtype = subtype
+                    subtype = subtype,
+                    locale = locale
                 )
             )
         }
     }
-    
+
     /**
      * Create multiple invitations at once
      */
@@ -278,7 +280,8 @@ class VortexClient(
         configurationAttributes: Map<String, JsonElement>? = null,
         templateVariables: Map<String, String>? = null,
         metadata: Map<String, Any>? = null,
-        subtype: String? = null
+        subtype: String? = null,
+        locale: String? = null
     ): Result<CreateInvitationResponse> {
         val payload = mutableMapOf<String, InvitationPayloadValue>()
         
@@ -304,12 +307,13 @@ class VortexClient(
                     configurationAttributes = configurationAttributes,
                     templateVariables = templateVariables,
                     metadata = metadata?.toJsonElementMap(),
-                    subtype = subtype
+                    subtype = subtype,
+                    locale = locale
                 )
             )
         }
     }
-    
+
     /**
      * Generate a shareable link for the widget
      */
@@ -346,7 +350,8 @@ class VortexClient(
         contactName: String? = null,
         groups: List<GroupDTO>? = null,
         templateVariables: Map<String, String>? = null,
-        metadata: Map<String, Any>? = null
+        metadata: Map<String, Any>? = null,
+        locale: String? = null
     ): Result<String?> {
         // Build payload matching iOS/RN SDK format:
         // { smsTarget: { type: "phone", value: [{ value: phoneNumber, name?: contactName }] } }
@@ -372,7 +377,8 @@ class VortexClient(
                     source = "phone",
                     groups = groups,
                     templateVariables = templateVariables,
-                    metadata = metadata?.toJsonElementMap()
+                    metadata = metadata?.toJsonElementMap(),
+                    locale = locale
                 )
             )
         }.map { response ->
@@ -397,7 +403,8 @@ class VortexClient(
         groups: List<GroupDTO>? = null,
         templateVariables: Map<String, String>? = null,
         metadata: Map<String, Any>? = null,
-        subtype: String? = null
+        subtype: String? = null,
+        locale: String? = null
     ): Result<CreateInvitationResponse> {
         // Build the target value object: { value: internalId, name: contactName, avatarUrl?: string }
         val targetValueMap = mutableMapOf<String, JsonPrimitive>(
@@ -428,7 +435,8 @@ class VortexClient(
                     groups = groups,
                     templateVariables = templateVariables,
                     metadata = metadata?.toJsonElementMap(),
-                    subtype = subtype
+                    subtype = subtype,
+                    locale = locale
                 )
             )
         }

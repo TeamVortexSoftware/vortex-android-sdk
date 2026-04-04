@@ -559,7 +559,8 @@ private fun RenderBlock(
                     onListDisplayed = { count ->
                         viewModel.trackFindFriendsListDisplayed(count)
                     },
-                    block = block
+                    block = block,
+                    locale = viewModel.localeValue
                 )
             }
         }
@@ -607,11 +608,12 @@ private fun RenderBlock(
                     },
                     outgoingInvitationUserIds = viewModel.outgoingInvitationUserIds,
                     isOutgoingInvitationsLoaded = viewModel.isOutgoingInvitationsLoaded,
-                    block = block
+                    block = block,
+                    locale = viewModel.localeValue
                 )
             }
         }
-        
+
         // Incoming Invitations component
         "incoming-invitations", "vrtx-incoming-invitations" -> {
             IncomingInvitationsView(
@@ -647,11 +649,12 @@ private fun RenderBlock(
                         viewModel.fireInvitationSentEvent(InvitationSentEvent.InvitationSource.SEARCH_BOX)
                     },
                     outgoingInvitationUserIds = viewModel.outgoingInvitationUserIds,
-                    block = block
+                    block = block,
+                    locale = viewModel.localeValue
                 )
             }
         }
-        
+
         else -> {
             // Render children for unknown block types
             block.children.forEach { child ->
@@ -1422,7 +1425,8 @@ private fun InviteContactsSecondaryView(viewModel: VortexInviteViewModel) {
                                     widgetId = viewModel.widgetId,
                                     phoneNumber = contact.phoneNumber,
                                     contactName = contact.name,
-                                    groups = viewModel.groupList
+                                    groups = viewModel.groupList,
+                                    locale = viewModel.localeValue
                                 ).onSuccess { shortLink ->
                                     invitedIds = invitedIds + contact.id
                                     config.onInvite?.invoke(contact, shortLink)

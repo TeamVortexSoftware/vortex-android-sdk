@@ -255,7 +255,9 @@ data class CreateInvitationRequest(
     @SerialName("metadata")
     val metadata: Map<String, kotlinx.serialization.json.JsonElement>? = null,
     @SerialName("subtype")
-    val subtype: String? = null
+    val subtype: String? = null,
+    @SerialName("locale")
+    val locale: String? = null
 )
 
 /**

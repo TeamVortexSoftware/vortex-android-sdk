@@ -45,6 +45,7 @@ fun InvitationSuggestionsView(
     outgoingInvitationUserIds: kotlinx.coroutines.flow.StateFlow<Set<String>>? = null,
     isOutgoingInvitationsLoaded: kotlinx.coroutines.flow.StateFlow<Boolean>? = null,
     block: ElementNode? = null,
+    locale: String? = null,
     modifier: Modifier = Modifier
 ) {
     // Extract theme values from block or use defaults
@@ -173,7 +174,8 @@ fun InvitationSuggestionsView(
                             contactEmail = suggestion.email,
                             groups = groups,
                             metadata = mergedMetadata,
-                            subtype = "suggestions"
+                            subtype = "suggestions",
+                            locale = locale
                         ).onSuccess {
                             invitedIds = invitedIds + suggestion.id
                             config.onInvite?.invoke(suggestion)

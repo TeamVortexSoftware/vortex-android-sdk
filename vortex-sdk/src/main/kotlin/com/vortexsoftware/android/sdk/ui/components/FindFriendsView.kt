@@ -50,6 +50,7 @@ fun FindFriendsView(
     isOutgoingInvitationsLoaded: kotlinx.coroutines.flow.StateFlow<Boolean>? = null,
     onListDisplayed: ((Int) -> Unit)? = null,
     block: ElementNode? = null,
+    locale: String? = null,
     modifier: Modifier = Modifier
 ) {
     // Extract theme values from block or use defaults
@@ -181,7 +182,8 @@ fun FindFriendsView(
                             contactEmail = contact.email,
                             groups = groups,
                             metadata = mergedMetadata,
-                            subtype = "find-friends"
+                            subtype = "find-friends",
+                            locale = locale
                         ).onSuccess {
                             connectedIds = connectedIds + contact.id
                             config.onInvitationCreated?.invoke(contact)

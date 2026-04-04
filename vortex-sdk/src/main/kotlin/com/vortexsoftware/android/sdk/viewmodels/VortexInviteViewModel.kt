@@ -650,7 +650,8 @@ class VortexInviteViewModel(
                 inviteeEmail = contact.email,
                 groups = group?.let { listOf(it) },
                 formData = getFormData().takeIf { it.isNotEmpty() },
-                metadata = unfurlConfig?.toMetadata()
+                metadata = unfurlConfig?.toMetadata(),
+                locale = locale
             ).onSuccess {
                 fireInvitationSentEvent(InvitationSentEvent.InvitationSource.INVITE_CONTACTS)
                 _contactInviteStates.value = _contactInviteStates.value + (contact.id to ContactInviteState(
@@ -973,7 +974,8 @@ class VortexInviteViewModel(
                     inviteeEmails = emailsToSend,
                     groups = group?.let { listOf(it) },
                     formData = getFormData().takeIf { it.isNotEmpty() },
-                    metadata = unfurlConfig?.toMetadata()
+                    metadata = unfurlConfig?.toMetadata(),
+                    locale = locale
                 ).onSuccess {
                     fireInvitationSentEvent(InvitationSentEvent.InvitationSource.EMAIL_INVITATIONS)
                 }

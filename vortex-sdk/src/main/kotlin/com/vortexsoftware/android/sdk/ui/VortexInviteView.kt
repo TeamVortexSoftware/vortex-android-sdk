@@ -75,6 +75,8 @@ import com.vortexsoftware.android.sdk.viewmodels.VortexInviteViewModel
  *              This is a convenience alternative to [group] — if [group] is provided, it takes precedence.
  * @param scopeType Optional type of the scope (e.g., "team", "project").
  *                  Used together with [scope] to create group context for API calls.
+ * @param templateVariables Optional template variables to pass to the API.
+ *                          These variables are used for server-side template rendering in invitations.
  */
 @Composable
 fun VortexInviteView(
@@ -99,7 +101,8 @@ fun VortexInviteView(
     searchBoxConfig: SearchBoxConfig? = null,
     unfurlConfig: UnfurlConfig? = null,
     scope: String? = null,
-    scopeType: String? = null
+    scopeType: String? = null,
+    templateVariables: Map<String, String>? = null
 ) {
     // Convert scope/scopeType to GroupDTO if group is not provided
     val effectiveGroup = group ?: if (scope != null && scopeType != null) {
@@ -128,7 +131,8 @@ fun VortexInviteView(
             incomingInvitationsConfig = incomingInvitationsConfig,
             outgoingInvitationsConfig = outgoingInvitationsConfig,
             searchBoxConfig = searchBoxConfig,
-            unfurlConfig = unfurlConfig
+            unfurlConfig = unfurlConfig,
+            templateVariables = templateVariables
         )
     )
     
@@ -551,6 +555,7 @@ private fun RenderBlock(
                     widgetId = viewModel.widgetId,
                     groups = viewModel.groupList,
                     unfurlConfig = viewModel.unfurlConfig,
+                    templateVariables = viewModel.templateVariablesValue,
                     onInvitationSent = {
                         viewModel.fireInvitationSentEvent(InvitationSentEvent.InvitationSource.FIND_FRIENDS)
                     },
@@ -603,6 +608,7 @@ private fun RenderBlock(
                     widgetId = viewModel.widgetId,
                     groups = viewModel.groupList,
                     unfurlConfig = viewModel.unfurlConfig,
+                    templateVariables = viewModel.templateVariablesValue,
                     onInvitationSent = {
                         viewModel.fireInvitationSentEvent(InvitationSentEvent.InvitationSource.INVITATION_SUGGESTIONS)
                     },
@@ -645,6 +651,7 @@ private fun RenderBlock(
                     widgetId = viewModel.widgetId,
                     groups = viewModel.groupList,
                     unfurlConfig = viewModel.unfurlConfig,
+                    templateVariables = viewModel.templateVariablesValue,
                     onInvitationSent = {
                         viewModel.fireInvitationSentEvent(InvitationSentEvent.InvitationSource.SEARCH_BOX)
                     },
@@ -1426,6 +1433,7 @@ private fun InviteContactsSecondaryView(viewModel: VortexInviteViewModel) {
                                     phoneNumber = contact.phoneNumber,
                                     contactName = contact.name,
                                     groups = viewModel.groupList,
+                                    templateVariables = viewModel.templateVariablesValue,
                                     locale = viewModel.localeValue
                                 ).onSuccess { shortLink ->
                                     invitedIds = invitedIds + contact.id

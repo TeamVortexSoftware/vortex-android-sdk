@@ -45,6 +45,7 @@ fun FindFriendsView(
     widgetId: String,
     groups: List<GroupDTO>?,
     unfurlConfig: UnfurlConfig? = null,
+    templateVariables: Map<String, String>? = null,
     onInvitationSent: (() -> Unit)? = null,
     outgoingInvitationUserIds: kotlinx.coroutines.flow.StateFlow<Set<String>>? = null,
     isOutgoingInvitationsLoaded: kotlinx.coroutines.flow.StateFlow<Boolean>? = null,
@@ -181,6 +182,7 @@ fun FindFriendsView(
                             contactAvatarUrl = contact.avatarUrl,
                             contactEmail = contact.email,
                             groups = groups,
+                            templateVariables = templateVariables,
                             metadata = mergedMetadata,
                             subtype = "find-friends",
                             locale = locale

@@ -43,7 +43,8 @@ class VortexConfigurationPrefetcher(
     val componentId: String,
     private val apiBaseUrl: String = VortexClient.DEFAULT_BASE_URL,
     private val enableLogging: Boolean = false,
-    private val locale: String? = null
+    private val locale: String? = null,
+    private val templateVariables: Map<String, String>? = null
 ) {
     private val client = VortexClient(
         baseUrl = apiBaseUrl,
@@ -107,7 +108,7 @@ class VortexConfigurationPrefetcher(
                     enableLogging = enableLogging
                 )
                 
-                val result = clientWithJwt.getWidgetConfiguration(componentId, locale)
+                val result = clientWithJwt.getWidgetConfiguration(componentId, locale, templateVariables)
                 
                 result.fold(
                     onSuccess = { response ->

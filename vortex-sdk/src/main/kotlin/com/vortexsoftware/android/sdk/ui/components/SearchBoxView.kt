@@ -50,6 +50,7 @@ fun SearchBoxView(
     widgetId: String,
     groups: List<GroupDTO>?,
     unfurlConfig: UnfurlConfig? = null,
+    templateVariables: Map<String, String>? = null,
     onInvitationSent: (() -> Unit)? = null,
     outgoingInvitationUserIds: kotlinx.coroutines.flow.StateFlow<Set<String>>? = null,
     block: ElementNode? = null,
@@ -246,6 +247,7 @@ fun SearchBoxView(
                                     contactAvatarUrl = contact.avatarUrl,
                                     contactEmail = contact.email,
                                     groups = groups,
+                                    templateVariables = templateVariables,
                                     metadata = mergedMetadata,
                                     subtype = "search-box",
                                     locale = locale

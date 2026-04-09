@@ -106,6 +106,24 @@ VortexInviteView(
 )
 ```
 
+### With Template Variables
+
+Pass custom template variables for server-side template rendering in invitation emails and messages:
+
+```kotlin
+VortexInviteView(
+    componentId = "your-widget-id",
+    jwt = "your-jwt-token",
+    templateVariables = mapOf(
+        "team_name" to "Engineering",
+        "sender_name" to "Alice"
+    ),
+    onDismiss = { /* handle dismiss */ }
+)
+```
+
+Template variables are passed through to all invitation methods (email, SMS, shareable links) and are used by the Vortex backend to render dynamic content in invitation templates.
+
 ### With Google Contacts Integration
 
 ```kotlin
@@ -144,7 +162,8 @@ import com.vortexsoftware.android.sdk.prefetch.VortexConfigurationPrefetcher
 
 // Create prefetcher (e.g., in your ViewModel or Composable)
 val prefetcher = VortexConfigurationPrefetcher(
-    componentId = "your-component-id"
+    componentId = "your-component-id",
+    templateVariables = mapOf("team_name" to "Engineering")  // optional
 )
 
 // When JWT becomes available, start prefetching
@@ -721,7 +740,8 @@ fun VortexInviteView(
     searchBoxConfig: SearchBoxConfig? = null,
     unfurlConfig: UnfurlConfig? = null,
     scope: String? = null,
-    scopeType: String? = null
+    scopeType: String? = null,
+    templateVariables: Map<String, String>? = null
 )
 ```
 
@@ -747,6 +767,7 @@ fun VortexInviteView(
 | `unfurlConfig` | `UnfurlConfig?` | No | `null` | Configuration for [Unfurl Configuration](#unfurl-configuration) |
 | `scope` | `String?` | No | `null` | Scope identifier (e.g., team ID). Convenience alternative to `group` |
 | `scopeType` | `String?` | No | `null` | Scope type (e.g., "team", "project"). Used with `scope` |
+| `templateVariables` | `Map<String, String>?` | No | `null` | Custom variables for server-side template rendering in invitations |
 
 ## Deferred Deep Linking
 

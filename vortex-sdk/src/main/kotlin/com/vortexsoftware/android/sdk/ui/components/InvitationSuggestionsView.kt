@@ -41,6 +41,7 @@ fun InvitationSuggestionsView(
     widgetId: String,
     groups: List<GroupDTO>?,
     unfurlConfig: UnfurlConfig? = null,
+    templateVariables: Map<String, String>? = null,
     onInvitationSent: (() -> Unit)? = null,
     outgoingInvitationUserIds: kotlinx.coroutines.flow.StateFlow<Set<String>>? = null,
     isOutgoingInvitationsLoaded: kotlinx.coroutines.flow.StateFlow<Boolean>? = null,
@@ -173,6 +174,7 @@ fun InvitationSuggestionsView(
                             contactAvatarUrl = suggestion.avatarUrl,
                             contactEmail = suggestion.email,
                             groups = groups,
+                            templateVariables = templateVariables,
                             metadata = mergedMetadata,
                             subtype = "suggestions",
                             locale = locale

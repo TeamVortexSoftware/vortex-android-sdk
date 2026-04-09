@@ -28,7 +28,8 @@ interface VortexApi {
     @GET("api/v1/widgets/{componentId}")
     suspend fun getWidgetConfiguration(
         @Path("componentId") componentId: String,
-        @Query("locale") locale: String? = null
+        @Query("locale") locale: String? = null,
+        @Query("templateVariables") templateVariables: String? = null
     ): Response<WidgetConfigurationResponse>
     
     /**
@@ -213,9 +214,18 @@ class VortexClient(
      * @param componentId The widget/component ID
      * @param locale Optional BCP 47 language code for internationalization (e.g., "pt-BR", "en-US")
      */
-    suspend fun getWidgetConfiguration(componentId: String, locale: String? = null): Result<WidgetConfigurationResponse> {
+    suspend fun getWidgetConfiguration(
+        componentId: String,
+        locale: String? = null,
+        templateVariables: Map<String, String>? = null
+    ): Result<WidgetConfigurationResponse> {
+        // Serialize templateVariables to JSON string for query parameter
+        val templateVariablesJson = templateVariables?.let {
+            val jsonObj = JsonObject(it.mapValues { (_, v) -> JsonPrimitive(v) })
+            jsonObj.toString()
+        }
         val result = executeRequest {
-            api.getWidgetConfiguration(componentId, locale)
+            api.getWidgetConfiguration(componentId, locale, templateVariablesJson)
         }
         
         result.onSuccess { response ->

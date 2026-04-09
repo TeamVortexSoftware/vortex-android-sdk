@@ -53,11 +53,13 @@ class VortexInviteViewModel(
     val incomingInvitationsConfig: IncomingInvitationsConfig? = null,
     val outgoingInvitationsConfig: OutgoingInvitationsConfig? = null,
     val searchBoxConfig: SearchBoxConfig? = null,
-    val unfurlConfig: UnfurlConfig? = null
+    val unfurlConfig: UnfurlConfig? = null,
+    private val templateVariables: Map<String, String>? = null
 ) : ViewModel() {
     
     val googleClientIdValue: String? get() = googleClientId
     val localeValue: String? get() = locale
+    val templateVariablesValue: Map<String, String>? get() = templateVariables
     
     // Expose widget configuration ID and group for use by child components
     // Use configuration ID when available, fallback to componentId
@@ -434,7 +436,7 @@ class VortexInviteViewModel(
                 return@launch
             }
 
-            client.getWidgetConfiguration(componentId, locale)
+            client.getWidgetConfiguration(componentId, locale, templateVariables)
                 .onSuccess { response ->
                     val freshConfig = WidgetConfiguration.fromDTO(response.data)
                     _configuration.value = freshConfig
@@ -650,6 +652,7 @@ class VortexInviteViewModel(
                 inviteeEmail = contact.email,
                 groups = group?.let { listOf(it) },
                 formData = getFormData().takeIf { it.isNotEmpty() },
+                templateVariables = templateVariables,
                 metadata = unfurlConfig?.toMetadata(),
                 locale = locale
             ).onSuccess {
@@ -974,6 +977,7 @@ class VortexInviteViewModel(
                     inviteeEmails = emailsToSend,
                     groups = group?.let { listOf(it) },
                     formData = getFormData().takeIf { it.isNotEmpty() },
+                    templateVariables = templateVariables,
                     metadata = unfurlConfig?.toMetadata(),
                     locale = locale
                 ).onSuccess {
@@ -1043,6 +1047,7 @@ class VortexInviteViewModel(
         return client.generateShareableLink(
             widgetId = widgetConfigId,
             groups = group?.let { listOf(it) },
+            templateVariables = templateVariables,
             metadata = unfurlConfig?.toMetadata()
         ).getOrNull()?.data?.invitation?.shortLink?.also {
             _shareableLink.value = it
@@ -1589,7 +1594,8 @@ class VortexInviteViewModel(
         private val incomingInvitationsConfig: IncomingInvitationsConfig? = null,
         private val outgoingInvitationsConfig: OutgoingInvitationsConfig? = null,
         private val searchBoxConfig: SearchBoxConfig? = null,
-        private val unfurlConfig: UnfurlConfig? = null
+        private val unfurlConfig: UnfurlConfig? = null,
+        private val templateVariables: Map<String, String>? = null
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -1614,7 +1620,8 @@ class VortexInviteViewModel(
                     incomingInvitationsConfig = incomingInvitationsConfig,
                     outgoingInvitationsConfig = outgoingInvitationsConfig,
                     searchBoxConfig = searchBoxConfig,
-                    unfurlConfig = unfurlConfig
+                    unfurlConfig = unfurlConfig,
+                    templateVariables = templateVariables
                 ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")

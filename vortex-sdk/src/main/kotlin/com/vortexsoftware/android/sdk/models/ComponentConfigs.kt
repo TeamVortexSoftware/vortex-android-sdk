@@ -186,12 +186,16 @@ data class IncomingInvitationItem(
  * @property getSubtitle Optional callback to compute a custom subtitle for each invitation.
  *                       When provided, the SDK calls this function for each invitation to determine
  *                       the displayed subtitle. If not provided, no subtitle is rendered.
+ * @property isExisting Whether the accepting user was already a registered user of your service.
+ *                      Set to `true` for existing users, `false` for new signups.
+ *                      If `null` (default), the value is not specified in the API call.
  */
 data class IncomingInvitationsConfig(
     val internalInvitations: List<IncomingInvitationItem>? = null,
     val onAccept: (suspend (IncomingInvitationItem) -> Boolean)? = null,
     val onDelete: (suspend (IncomingInvitationItem) -> Boolean)? = null,
-    val getSubtitle: ((IncomingInvitationItem) -> String?)? = null
+    val getSubtitle: ((IncomingInvitationItem) -> String?)? = null,
+    val isExisting: Boolean? = null
 )
 
 // ============================================================================

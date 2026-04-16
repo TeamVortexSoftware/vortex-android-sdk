@@ -204,7 +204,7 @@ fun IncomingInvitationsView(
                                 
                                 if (shouldProceed && item.isVortexInvitation) {
                                     // Only call API for Vortex invitations
-                                    val result = client.acceptInvitation(item.id)
+                                    val result = client.acceptInvitation(item.id, config?.isExisting)
                                     val shouldRemove = result.isSuccess || result.exceptionOrNull().let {
                                         it is VortexError.NotFound || it is VortexError.Conflict
                                     }

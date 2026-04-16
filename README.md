@@ -527,6 +527,15 @@ Use the `isVortexInvitation` property to determine where an invitation came from
 | `onAccept` | `suspend (IncomingInvitationItem) -> Boolean` | No | Called when user accepts |
 | `onDelete` | `suspend (IncomingInvitationItem) -> Boolean` | No | Called when user deletes |
 | `getSubtitle` | `(IncomingInvitationItem) -> String?` | No | Compute subtitle from metadata |
+| `isExisting` | `Boolean?` | No | Whether accepting user is an existing user (see below) |
+
+**`isExisting` Parameter:**
+
+The `isExisting` parameter tells the Vortex API whether the user accepting the invitation was already a registered user of your service. This is used for analytics (e.g., the "Shareable Link Invitations Accepted" chart breaks down acceptances by new vs. existing users).
+
+- `true` — The accepting user was already registered (existing user)
+- `false` — The accepting user just signed up (new user)
+- `null` — Not specified (shows as "Not Specified" in analytics)
 
 **Callback Return Values:**
 
@@ -669,6 +678,12 @@ val invitation = client.getInvitation(invitationId = "invitation-id")
 // Accept an incoming invitation
 client.acceptInvitation(invitationId = "invitation-id")
 
+// Accept an invitation and mark the user as existing
+client.acceptInvitation(invitationId = "invitation-id", isExisting = true)
+
+// Accept an invitation and mark the user as new
+client.acceptInvitation(invitationId = "invitation-id", isExisting = false)
+
 // Revoke (deactivate) an invitation
 client.revokeInvitation(invitationId = "invitation-id")
 
@@ -685,7 +700,7 @@ val incoming = client.getIncomingInvitations()
 | Method | Description |
 |--------|-------------|
 | `getInvitation(invitationId)` | Retrieves full details of a specific invitation including targets, groups, acceptance records, and metadata |
-| `acceptInvitation(invitationId)` | Accepts an incoming invitation that the user has received |
+| `acceptInvitation(invitationId, isExisting?)` | Accepts an incoming invitation. `isExisting`: `true` for existing users, `false` for new signups, `null` for unspecified. |
 | `revokeInvitation(invitationId)` | Revokes (deactivates) an invitation where the user is either the creator or a target |
 | `deleteIncomingInvitation(invitationId)` | Deletes an incoming invitation |
 | `getOutgoingInvitations()` | Retrieves all outgoing invitations for the authenticated user |

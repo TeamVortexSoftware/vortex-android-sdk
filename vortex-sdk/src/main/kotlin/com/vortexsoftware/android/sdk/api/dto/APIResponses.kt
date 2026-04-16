@@ -450,7 +450,8 @@ data class IncomingInvitation(
  */
 @Serializable
 data class AcceptInvitationRequest(
-    val invitationId: String
+    val invitationId: String,
+    val isExisting: Boolean? = null
 )
 
 // ============================================================================

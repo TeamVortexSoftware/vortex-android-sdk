@@ -518,11 +518,14 @@ class VortexClient(
      * will be recorded.
      *
      * @param invitationId The ID of the invitation to accept
+     * @param isExisting Whether the accepting user was already a registered user of your service.
+     *                   Set to `true` for existing users, `false` for new signups.
+     *                   If `null` (default), the value is not specified.
      * @throws VortexError if the request fails
      */
-    suspend fun acceptInvitation(invitationId: String): Result<Unit> {
+    suspend fun acceptInvitation(invitationId: String, isExisting: Boolean? = null): Result<Unit> {
         return executeRequest {
-            api.acceptInvitation(AcceptInvitationRequest(invitationId))
+            api.acceptInvitation(AcceptInvitationRequest(invitationId, isExisting))
         }
     }
     

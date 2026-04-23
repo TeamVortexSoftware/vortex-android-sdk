@@ -14,6 +14,10 @@ googlePlayServicesAuth = "21.3.0"
 zxing = "3.5.3"
 dokka = "1.9.20"
 mavenPublish = "0.29.0"
+junit = "4.13.2"
+mockk = "1.13.13"
+kotlinxCoroutines = "1.8.1"
+turbine = "1.1.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -43,6 +47,12 @@ play-services-auth = { group = "com.google.android.gms", name = "play-services-a
 
 # QR Code generation
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
+
+# Testing
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
+turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
 
 [plugins]
 android-library = { id = "com.android.library", version.ref = "agp" }

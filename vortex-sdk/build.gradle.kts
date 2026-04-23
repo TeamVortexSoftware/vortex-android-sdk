@@ -44,6 +44,14 @@ android {
         compose = true
         buildConfig = true
     }
+
+    testOptions {
+        unitTests {
+            // Allow referencing Android framework classes (e.g. android.util.Log)
+            // from code under test without throwing "not mocked" exceptions.
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 dependencies {
@@ -77,6 +85,12 @@ dependencies {
 
     // QR Code generation
     implementation(libs.zxing.core)
+
+    // Testing
+    testImplementation(libs.junit)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.turbine)
 }
 
 // === Publishing Configuration ===

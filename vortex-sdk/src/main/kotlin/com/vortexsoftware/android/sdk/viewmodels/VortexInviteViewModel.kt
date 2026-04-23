@@ -514,9 +514,16 @@ class VortexInviteViewModel(
         outgoingInvitationsConfig?.internalInvitations?.forEach { item ->
             ids.add(item.id)
         }
-        // From API-fetched outgoing invitations
+        // From API-fetched outgoing invitations.
+        // The backend returns `targets` in non-deterministic order, so we must
+        // explicitly pick the internal target — taking firstOrNull() risks
+        // grabbing the email target and storing an email string instead of the
+        // invitee bffUUID, which breaks matching against FindFriendsContact.id.
         _fetchedOutgoingInvitations.value.forEach { invitation ->
-            invitation.targets?.firstOrNull()?.targetValue?.let { ids.add(it) }
+            invitation.targets
+                ?.firstOrNull { it.targetType == "internal" || it.targetType == "internalId" }
+                ?.targetValue
+                ?.let { ids.add(it) }
         }
         _outgoingInvitationUserIds.value = ids
     }

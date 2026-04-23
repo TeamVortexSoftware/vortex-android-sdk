@@ -204,6 +204,30 @@ internal fun InitialsAvatar(
 // Extension Functions
 // ============================================================================
 
+/**
+ * Merge API-fetched outgoing invitations with app-provided internal invitations,
+ * removing internal entries that already have a matching API invitation for the
+ * same invitee (DEV-2418).
+ *
+ * Why a dedicated helper: `apiItems.id` is the Vortex invitation UUID while
+ * `internalItems.id` is the invitee bffUUID, so a direct id comparison never
+ * matches. We pair them by the API invitation's `internal`/`internalId` target
+ * value, which IS the bffUUID. The target-type filter also defends against the
+ * non-deterministic target order surfaced in DEV-2417.
+ */
+internal fun dedupeOutgoingInvitations(
+    apiItems: List<OutgoingInvitationItem>,
+    internalItems: List<OutgoingInvitationItem>,
+): List<OutgoingInvitationItem> {
+    val apiInternalUserIds = apiItems.mapNotNull { item ->
+        item.invitation?.targets
+            ?.firstOrNull { it.targetType == "internal" || it.targetType == "internalId" }
+            ?.targetValue
+    }.toSet()
+    val uniqueInternal = internalItems.filter { it.id !in apiInternalUserIds }
+    return apiItems + uniqueInternal
+}
+
 internal fun com.vortexsoftware.android.sdk.api.dto.OutgoingInvitation.toDisplayItem(): OutgoingInvitationItem {
     val target = targets?.firstOrNull()
     val targetName = target?.targetName

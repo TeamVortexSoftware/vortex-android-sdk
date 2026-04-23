@@ -104,12 +104,11 @@ fun OutgoingInvitationsView(
                     invitation.targets?.firstOrNull()?.targetType != "share"
                 }
                 val apiItems = filtered.map { it.toDisplayItem() }
-                // Merge with internal invitations from config
+                // Merge with internal invitations from config, removing duplicates
+                // that already have a pending API invitation for the same invitee.
                 val internalItems = config?.internalInvitations ?: emptyList()
-                // Deduplicate: if an API invitation has the same id as an internal one, keep the API one
-                val apiIds = apiItems.map { it.id }.toSet()
-                val uniqueInternal = internalItems.filter { it.id !in apiIds }
-                invitations = (apiItems + uniqueInternal).sortedBy { it.name.lowercase() }
+                invitations = dedupeOutgoingInvitations(apiItems, internalItems)
+                    .sortedBy { it.name.lowercase() }
             } catch (e: Exception) {
                 if (invitations.isEmpty()) {
                     error = "Failed to load invitations"

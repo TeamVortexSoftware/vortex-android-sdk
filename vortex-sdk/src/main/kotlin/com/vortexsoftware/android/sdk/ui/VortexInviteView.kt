@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -1560,7 +1561,21 @@ private fun InviteContactsRow(
 @Composable
 private fun QrCodeView(viewModel: VortexInviteViewModel) {
     val qrCodeLink by viewModel.qrCodeLink.collectAsState()
-    
+
+    // DEV-2504: customizable copy shown above the QR code
+    val shareOptionsBlock = viewModel.findShareOptionsBlock()
+    val headline = viewModel.customLabel(
+        shareOptionsBlock,
+        "mobile.qrCode.headline",
+        "Are friends close by? Have them point their camera at the QR code to connect with you."
+    )
+    // Inherit color from share-options container styles, then theme, then default
+    val headlineColor =
+        shareOptionsBlock?.style?.get("color")?.let { parseHexColor(it)?.toComposeColor() }
+            ?: shareOptionsBlock?.getThemeOption("--vrtx-share-options-color")
+                ?.let { parseHexColor(it)?.toComposeColor() }
+            ?: VortexColors.Gray33
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1568,6 +1583,19 @@ private fun QrCodeView(viewModel: VortexInviteViewModel) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        if (headline.isNotBlank()) {
+            Text(
+                text = headline,
+                fontSize = 15.sp,
+                color = headlineColor,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 8.dp)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
         qrCodeLink?.let { link ->
             val qrBitmap = remember(link) { generateQrCode(link) }
             qrBitmap?.let { bitmap ->

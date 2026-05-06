@@ -1324,9 +1324,9 @@ class VortexInviteViewModel(
     /**
      * Find the share options block in the configuration
      */
-    private fun findShareOptionsBlock(): ElementNode? {
+    fun findShareOptionsBlock(): ElementNode? {
         val elements = _configuration.value?.elements ?: return null
-        return findBlockBySubtype(elements, "share-options") 
+        return findBlockBySubtype(elements, "share-options")
             ?: findBlockBySubtype(elements, "vrtx-share-options")
     }
     

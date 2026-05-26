@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
@@ -24,6 +25,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -115,24 +117,118 @@ fun FormLabelView(
 }
 
 /**
- * Image element
+ * Resolve a tap target from an element's `settings.action`. Mirrors the web /
+ * React Native `vrtx-image` component's `actionToHref` helper:
+ *  - openWebsite     -> the URL as-is
+ *  - emailAddress    -> mailto:
+ *  - telephoneNumber -> tel:
+ * Returns null for unknown action types or empty values.
+ */
+private fun ElementNode.actionHref(): String? {
+    val action = settings?.get("action") as? kotlinx.serialization.json.JsonObject ?: return null
+    val type = (action["type"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+    val value = (action["value"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+    if (value.isNullOrBlank()) return null
+    return when (type) {
+        "openWebsite" -> value
+        "emailAddress" -> "mailto:$value"
+        "telephoneNumber" -> "tel:$value"
+        else -> null
+    }
+}
+
+/**
+ * Parse a CSS length string (e.g. "150px", "150", "50%") into [Dp]. Returns null
+ * for unset / "auto" / percentage values that don't map to a fixed size, in
+ * which case callers fall back to intrinsic sizing.
+ */
+private fun cssLengthDp(value: String?): Dp? {
+    val s = value?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    if (s == "auto" || s.endsWith("%")) return null
+    val numeric = if (s.endsWith("px")) s.dropLast(2) else s
+    return numeric.toFloatOrNull()?.dp
+}
+
+/**
+ * Image element. Renders at natural size capped at the container width (no
+ * upscaling - matches the web `max-width: 100%`), honoring explicit
+ * width/height and `textAlign` alignment (default center). When the element has
+ * an action configured (`settings.action`) the image becomes tappable and opens
+ * the website / email / phone number, matching the React Native `VrtxImage`.
  */
 @Composable
 fun ImageView(
     block: ElementNode,
     modifier: Modifier = Modifier
 ) {
-    val src = block.getString("src") ?: return
+    val src = block.getString("src")?.takeIf { it.isNotEmpty() } ?: return
     val alt = block.getString("alt") ?: ""
-    
-    AsyncImage(
-        model = src,
-        contentDescription = alt,
-        contentScale = ContentScale.Fit,
+    val href = block.actionHref()
+    val uriHandler = LocalUriHandler.current
+
+    val explicitWidth = cssLengthDp(block.style["width"])
+    val explicitHeight = cssLengthDp(block.style["height"])
+    val alignment = when (block.style["textAlign"]) {
+        "left" -> Alignment.CenterStart
+        "right" -> Alignment.CenterEnd
+        else -> Alignment.Center
+    }
+
+    // Intrinsic pixel size, captured once the image loads, so we can cap the
+    // width at the natural size (no upscaling) and derive the aspect ratio.
+    var intrinsicSize by remember(src) { mutableStateOf<Size?>(null) }
+
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp)
-    )
+            .padding(vertical = 8.dp),
+        contentAlignment = alignment
+    ) {
+        val containerWidth = maxWidth
+        val natural = intrinsicSize
+        // Treat the image's intrinsic pixels as density-independent units (dp),
+        // matching how the web/iOS treat image pixels as layout units. This
+        // keeps sizing consistent across platforms instead of dividing by the
+        // device's pixel density.
+        val naturalWidth = if (natural != null && natural.width > 0f) {
+            natural.width.dp
+        } else {
+            containerWidth
+        }
+        val aspectRatio = if (natural != null && natural.height > 0f) {
+            natural.width / natural.height
+        } else {
+            null
+        }
+
+        val targetWidth = explicitWidth ?: minOf(naturalWidth, containerWidth)
+
+        var imageModifier: Modifier = Modifier.width(targetWidth)
+        imageModifier = when {
+            explicitHeight != null -> imageModifier.height(explicitHeight)
+            aspectRatio != null -> imageModifier.aspectRatio(aspectRatio)
+            else -> imageModifier
+        }
+        if (href != null) {
+            imageModifier = imageModifier.clickable { uriHandler.openUri(href) }
+        }
+
+        AsyncImage(
+            model = src,
+            contentDescription = alt,
+            contentScale = ContentScale.Fit,
+            onSuccess = { state ->
+                val drawable = state.result.drawable
+                if (drawable.intrinsicWidth > 0 && drawable.intrinsicHeight > 0) {
+                    intrinsicSize = Size(
+                        drawable.intrinsicWidth.toFloat(),
+                        drawable.intrinsicHeight.toFloat()
+                    )
+                }
+            },
+            modifier = imageModifier
+        )
+    }
 }
 
 /**
